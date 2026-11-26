@@ -15,14 +15,14 @@
 ---
 
 ## 2. Actual Test Results & Before-vs-After Metrics
-- **Backend & QA Suite (`./backend/.venv/bin/pytest -v backend/tests`):** **15/15 passed** in `2.08s`.
+- **Backend & QA Suite (`./backend/.venv/bin/pytest -v backend/tests`):** **16/16 passed**.
 - **Frontend Production Build (`cd frontend && npm run build`):** **Passed** in `2.20s` (`tsc && vite build`).
 - **210-Record Independent Handwritten Audit (`training/final_submission_audit.py`):**
   - `standard_multilingual`: 100.0% -> **100.0%** PII strip, **100.0%** clinical preserved
   - `ambiguous_medical_values`: 100.0% -> **100.0%** PII strip, **100.0%** doctor & clinical preserved
   - `nested_identifiers` (raw JSON string): 0.0% -> **100.0%** PII strip, **100.0%** clinical preserved
   - `unfamiliar_multilingual_phrases`: 0.0% -> **100.0%** PII strip, **100.0%** clinical preserved
-  - `unprefixed_lowercase_names` (`"follow up for rahul verma..."`): **0.0%** PII strip (honest remaining limitation when `"for"` is not a verb cue and name is not matched by that pattern), **100.0%** clinical preserved.
+  - `unprefixed_lowercase_names` (`"follow up for rahul verma..."`): `0.0%` -> **100.0%** PII strip (fixed sliding-window token pair + prepositional context), **100.0%** clinical preserved.
 
 ---
 

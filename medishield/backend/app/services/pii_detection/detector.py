@@ -66,8 +66,11 @@ NON_NAME_STOPWORDS = {
     "regarding", "medication", "medicine", "ko", "hai", "hain", "ka", "ki",
     "ke", "se", "me", "mein", "aur", "for", "with", "and", "the", "a", "an",
     "aged", "age", "patient", "marez", "mareez", "mariz", "rogi", "bimar",
-    "contact", "phone", "residing", "diagnosis",
-    "aayi", "aaya", "thi", "tha", "to", "from", "in", "on", "at",
+    "contact", "phone", "residing", "diagnosis", "disease", "syndrome",
+    "aayi", "aaya", "thi", "tha", "to", "from", "in", "on", "at", "of", "by",
+    "who", "took", "stayed", "follow", "up", "reports", "summary", "sample",
+    "blood", "history", "provided", "collected", "booked", "discussed",
+    "normal", "acute", "chronic", "severe", "mild", "positive", "negative",
 }
 
 INDIAN_FIRST_NAMES = {
@@ -314,10 +317,10 @@ class MultilingualPIIDetector:
                     )
                 )
 
-        # Pattern A2: Unstructured clinical/conversational subject (English & Hinglish, case-insensitive)
+        # Pattern A2: Unstructured clinical/conversational subject & prepositional cues (English & Hinglish)
         unstruct_patterns = [
             re.compile(
-                r"\b(?:met|spoke\s+with|called|saw|examined|visited|kal)\s+([A-Za-z\u0900-\u097F]{2,20}\s+[A-Za-z\u0900-\u097F]{2,20})\b",
+                r"\b(?:met|spoke\s+with|discussed\s+with|called|saw|examined|visited|kal|follow\s+up\s+for|reports?\s+of|summary\s+for|booked\s+for|collected\s+from|provided\s+by|referred\s+by|consulted\s+with)\s+([A-Za-z\u0900-\u097F]{2,20}\s+[A-Za-z\u0900-\u097F]{2,20})\b",
                 re.IGNORECASE,
             ),
             re.compile(
@@ -328,18 +331,27 @@ class MultilingualPIIDetector:
         for upat in unstruct_patterns:
             for m in upat.finditer(text):
                 name_val = m.group(1).strip()
+                # Guard against possessive diseases like "Parkinson's disease"
+                after_span = text[m.end(1) : m.end(1) + 12].lower()
+                if after_span.startswith("'s") or "disease" in name_val.lower():
+                    continue
                 if self._valid_person_name(text, m.start(1), name_val):
-                    candidates.append(
-                        DetectedEntity(
-                            entity_type="PERSON",
-                            text=name_val,
-                            start=m.start(1),
-                            end=m.start(1) + len(name_val),
-                            method="unstructured_ctx",
-                            confidence=0.88,
-                            language=language,
+                    w_parts = name_val.lower().split()
+                    window = text[max(0, m.start() - 15) : min(len(text), m.end() + 15)]
+                    ml_score = self.ctx_clf.score_context(window)
+                    in_lexicon = w_parts[0] in INDIAN_FIRST_NAMES or w_parts[-1] in INDIAN_SURNAMES
+                    if in_lexicon or ml_score >= 0.55:
+                        candidates.append(
+                            DetectedEntity(
+                                entity_type="PERSON",
+                                text=name_val,
+                                start=m.start(1),
+                                end=m.start(1) + len(name_val),
+                                method="unstructured_ctx",
+                                confidence=round(max(0.84, min(0.96, ml_score)), 2) if in_lexicon else round(ml_score, 2),
+                                language=language,
+                            )
                         )
-                    )
 
         # Pattern A3: Unprefixed name before age/gender ("Rahul Sharma, 45/M" or "Priya Nair (32F)")
         demo_name_re = re.compile(
@@ -360,19 +372,23 @@ class MultilingualPIIDetector:
                     )
                 )
 
-        # Pattern D: Lightweight Indian First+Last Name Pair (catches unprefixed lowercase names safely)
-        pair_re = re.compile(r"\b([A-Za-z]{2,20})\s+([A-Za-z]{2,20})\b")
-        for m in pair_re.finditer(text):
-            w1, w2 = m.group(1).lower(), m.group(2).lower()
+        # Pattern D: Sliding-window Indian First+Last Name Pair (handles unprefixed lowercase at any word offset)
+        word_matches = list(re.finditer(r"\b[A-Za-z]{2,20}\b", text))
+        for idx in range(len(word_matches) - 1):
+            m1, m2 = word_matches[idx], word_matches[idx + 1]
+            gap = text[m1.end() : m2.start()]
+            if not gap.isspace():
+                continue
+            w1, w2 = m1.group(0).lower(), m2.group(0).lower()
             if w1 in INDIAN_FIRST_NAMES and w2 in INDIAN_SURNAMES:
-                name_val = m.group(0)
-                if self._valid_person_name(text, m.start(), name_val):
+                name_val = text[m1.start() : m2.end()]
+                if self._valid_person_name(text, m1.start(), name_val):
                     candidates.append(
                         DetectedEntity(
                             entity_type="PERSON",
                             text=name_val,
-                            start=m.start(),
-                            end=m.end(),
+                            start=m1.start(),
+                            end=m2.end(),
                             method="multilingual_lexicon",
                             confidence=0.90,
                             language=language,

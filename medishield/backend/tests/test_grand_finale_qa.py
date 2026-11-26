@@ -101,3 +101,36 @@ def test_metadata_inspect_endpoint():
     assert "Aarav_Sharma" not in data["sanitized_directory"]
     assert "Rahul" not in json.dumps(data["sanitized_json_preview"])
     assert "Metformin 500 mg" in json.dumps(data["sanitized_json_preview"])
+
+
+def test_fail_closed_clinical_gate_and_symlink_quarantine(tmp_path: Path):
+    from app.models.schemas import PolicyConfig
+    from app.services.anonymization.anonymizer import AnonymizerEngine
+    from app.services.anonymization.release_gate import verify_and_recover_clinical
+    from app.services.medical_fidelity.fidelity import MedicalFidelityEngine
+
+    # Deliberately corrupt clinical output and prove structured gate flags failure
+    ok, _, fid = verify_and_recover_clinical(
+        "Patient took Warfarin 2.5 mg, BP 130/85 mmHg, stay 4 days.",
+        "Patient took [REDACTED], BP [REDACTED], stay [REDACTED].",
+        [],
+        AnonymizerEngine(),
+        PolicyConfig(),
+        MedicalFidelityEngine(),
+        is_structured=True,
+    )
+    assert ok is False
+    assert fid["preservation_score"] < 1.0
+
+    # Symlink quarantine check in CLI
+    in_d = tmp_path / "in"
+    out_d = tmp_path / "out"
+    target = tmp_path / "outside_secret.txt"
+    in_d.mkdir()
+    target.write_text("SECRET_OUTSIDE_FILE", encoding="utf-8")
+    (in_d / "link.txt").symlink_to(target)
+    cli_main.run_pipeline(in_d, out_d)
+    rep = json.loads((out_d / "report.json").read_text(encoding="utf-8"))
+    assert rep["counts"]["files_quarantined"] == 1
+    assert rep["files"][0]["reason"] == "symlink rejected"
+    assert not (out_d / "sanitized" / "link.txt").exists()

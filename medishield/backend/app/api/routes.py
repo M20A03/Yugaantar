@@ -26,6 +26,10 @@ from app.models.schemas import (
     ScanResponse,
 )
 from app.services.anonymization.anonymizer import AnonymizerEngine
+from app.services.anonymization.release_gate import (
+    independent_privacy_verify,
+    verify_and_recover_clinical,
+)
 from app.services.anonymization.structured import (
     StructuredDepthError,
     sanitize_structured_payload,
@@ -99,12 +103,31 @@ def anonymize_record(req: AnonymizeRequest) -> AnonymizeResponse:
         )
         sanitized = json.dumps(sanitized_obj, ensure_ascii=False, indent=2)
         language = "structured_json"
+        is_struct = True
     else:
         language, entities = detector.scan(req.text)
         sanitized, applied = anonymizer.anonymize(req.text, entities, req.policy)
+        is_struct = False
+
+    sanitized, extra_priv, _ = independent_privacy_verify(sanitized)
+    applied += extra_priv
+
+    clin_ok, sanitized, fid = verify_and_recover_clinical(
+        req.text,
+        sanitized,
+        entities,
+        anonymizer,
+        req.policy,
+        fidelity_engine,
+        is_structured=is_struct,
+    )
+    if not clin_ok:
+        raise HTTPException(
+            status_code=422,
+            detail="Clinical integrity verification failed; output withheld to prevent corrupted medical data release.",
+        )
 
     r_before, r_after = risk_analyzer.score_single_text(entities)
-    fid = fidelity_engine.evaluate(req.text, sanitized)
     dt = (time.perf_counter() - t0) * 1000.0
 
     counts = dict(Counter(e.entity_type for e in entities))
@@ -287,27 +310,28 @@ async def batch_process(file: UploadFile = File(...)) -> BatchProcessResponse:
         except json.JSONDecodeError as exc:
             raise HTTPException(status_code=400, detail=f"Invalid JSON: {exc}") from exc
 
-        def _sanitize_obj(obj: Any) -> Any:
-            nonlocal total_entities, total_removed
-            if isinstance(obj, str):
-                _, ents = detector.scan(obj)
-                san, rem = anonymizer.anonymize(obj, ents, policy)
-                fid = fidelity_engine.evaluate(obj, san)
-                fidelity_scores.append(fid["preservation_score"])
-                total_entities += len(ents)
-                total_removed += rem
-                for e in ents:
-                    cat_counts[e.entity_type] += 1
-                return san
-            if isinstance(obj, list):
-                return [_sanitize_obj(x) for x in obj]
-            if isinstance(obj, dict):
-                return {k: _sanitize_obj(v) for k, v in obj.items()}
-            return obj
+        try:
+            sanitized_json, j_ents, j_applied = sanitize_structured_payload(
+                payload, detector, anonymizer, policy
+            )
+        except StructuredDepthError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-        sanitized_json = _sanitize_obj(payload)
+        total_entities += len(j_ents)
+        total_removed += j_applied
+        for e in j_ents:
+            cat_counts[e.entity_type] += 1
         records_count = len(payload) if isinstance(payload, list) else 1
         sanitized_out = json.dumps(sanitized_json, ensure_ascii=False, indent=2)
+        sanitized_out, extra_p, _ = independent_privacy_verify(sanitized_out)
+        total_removed += extra_p
+        fid = fidelity_engine.evaluate(text_content, sanitized_out)
+        if fid["preservation_score"] < 1.0:
+            raise HTTPException(
+                status_code=422,
+                detail="Clinical integrity verification failed in batch JSON; output withheld.",
+            )
+        fidelity_scores.append(fid["preservation_score"])
         preview_rows = sanitized_json[:10] if isinstance(sanitized_json, list) else [sanitized_json]
 
     r_before, r_after, _ = risk_analyzer.analyze_batch(quasi_rows or [QuasiRecord()])

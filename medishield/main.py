@@ -18,6 +18,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "backend"))
 
 from app.models.schemas import PolicyConfig  # noqa: E402
 from app.services.anonymization.anonymizer import AnonymizerEngine  # noqa: E402
+from app.services.anonymization.release_gate import (  # noqa: E402
+    independent_privacy_verify,
+    verify_and_recover_clinical,
+)
 from app.services.anonymization.structured import (  # noqa: E402
     StructuredDepthError,
     sanitize_structured_payload,
@@ -64,6 +68,19 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
     }
 
     for src_path in sorted(input_dir.rglob("*")):
+        if src_path.is_symlink():
+            counts["files_total"] += 1
+            counts["files_quarantined"] += 1
+            counts["records_quarantined"] += 1
+            report_files.append(
+                {
+                    "input_sha256": None,
+                    "output": None,
+                    "status": "quarantined",
+                    "reason": "symlink rejected",
+                }
+            )
+            continue
         if not src_path.is_file():
             continue
         counts["files_total"] += 1
@@ -252,23 +269,37 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
                 file_records_jsonl.append(json.dumps({"file": rel_out, "loc": f"line:{idx}" if len(lines) > 1 else "doc", "patient": psn}))
             sanitized_out_text = "\n".join(san_lines) + ("\n" if san_lines else "")
 
+        # Independent second-pass output privacy verification
+        sanitized_out_text, priv_interventions, _ = independent_privacy_verify(sanitized_out_text)
+        counts["identifiers_detected"] += priv_interventions
+
         # Fail-closed clinical integrity gate: verify, attempt safe recovery, or withhold
-        fid_res = fidelity.evaluate(raw_text, sanitized_out_text)
-        if fid_res["preservation_score"] < 1.0 and ext == ".txt":
-            lost_vals = {item["value"].lower() for item in fid_res["lost_items"]}
+        clin_ok, sanitized_out_text, fid_res = verify_and_recover_clinical(
+            raw_text,
+            sanitized_out_text,
+            [],
+            anonymizer,
+            policy,
+            fidelity,
+            is_structured=(ext != ".txt"),
+        )
+        if not clin_ok and ext == ".txt":
             repaired_lines: List[str] = []
+            lost_vals = {item["value"].lower() for item in fid_res["lost_items"]}
             for line in [ln for ln in raw_text.splitlines() if ln.strip()]:
                 _, ents = detector.scan(line)
                 safe_ents = [e for e in ents if e.text.lower() not in lost_vals]
                 san_txt, _ = anonymizer.anonymize(line, safe_ents, policy)
+                san_txt, _, _ = independent_privacy_verify(san_txt)
                 repaired_lines.append(san_txt)
             candidate_text = "\n".join(repaired_lines) + ("\n" if repaired_lines else "")
             fid_retry = fidelity.evaluate(raw_text, candidate_text)
             if fid_retry["preservation_score"] >= 1.0:
                 sanitized_out_text = candidate_text
                 fid_res = fid_retry
+                clin_ok = True
 
-        if fid_res["preservation_score"] < 1.0:
+        if not clin_ok:
             counts["files_quarantined"] += 1
             counts["records_quarantined"] += 1
             counts["clinical_integrity_flagged"] += 1
