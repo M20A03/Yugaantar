@@ -1,0 +1,10 @@
+{
+  "patient_name": "Kriti Dutta",
+  "contact": "+91-9818460781",
+  "clinical": {
+    "medication": "Insulin 10 units BD",
+    "lab": "HbA1c 7.8%",
+    "vitals": "SpO2 95%",
+    "stay": "4 days"
+  }
+}

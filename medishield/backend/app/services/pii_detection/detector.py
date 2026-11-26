@@ -134,7 +134,8 @@ REGEX_RULES: List[Tuple[str, re.Pattern, float]] = [
 
 
 def normalize_text(text: str) -> str:
-    return unicodedata.normalize("NFKC", text)
+    cleaned = re.sub(r"[\u200b-\u200d\ufeff]", "", text)
+    return unicodedata.normalize("NFKC", cleaned)
 
 
 def transliterate_devanagari(text: str) -> str:
@@ -320,7 +321,7 @@ class MultilingualPIIDetector:
         # Pattern A2: Unstructured clinical/conversational subject & prepositional cues (English & Hinglish)
         unstruct_patterns = [
             re.compile(
-                r"\b(?:met|spoke\s+with|discussed\s+with|called|saw|examined|visited|kal|follow\s+up\s+for|reports?\s+of|summary\s+for|booked\s+for|collected\s+from|provided\s+by|referred\s+by|consulted\s+with)\s+([A-Za-z\u0900-\u097F]{2,20}\s+[A-Za-z\u0900-\u097F]{2,20})\b",
+                r"\b(?:met|spoke\s+with|discussed\s+with|called|saw|examined|visited|kal|check(?:ing)?\s+on|follow\s+up\s+(?:for|on|with)|reports?\s+of|summary\s+for|booked\s+for|collected\s+from|provided\s+by|referred\s+by|consulted\s+with)\s+([A-Za-z\u0900-\u097F]{2,20}\s+[A-Za-z\u0900-\u097F]{2,20})\b",
                 re.IGNORECASE,
             ),
             re.compile(
@@ -353,7 +354,7 @@ class MultilingualPIIDetector:
                             )
                         )
 
-        # Pattern A3: Unprefixed name before age/gender ("Rahul Sharma, 45/M" or "Priya Nair (32F)")
+        # Pattern A3: Unprefixed name before age/gender or in parentheses ("Rahul Sharma, 45/M", "(Rhea Dutta)")
         demo_name_re = re.compile(
             r"(?:^|[.\n]\s*)([A-Z][a-z]{1,20}\s+[A-Z][a-z]{1,20})\s*[,\(]\s*\d{1,3}\s*(?:/|\s)?\s*[MFmf]\b"
         )
@@ -368,6 +369,22 @@ class MultilingualPIIDetector:
                         end=m.start(1) + len(name_val),
                         method="demographic_ctx",
                         confidence=0.89,
+                        language=language,
+                    )
+                )
+
+        paren_name_re = re.compile(r"\(\s*([A-Z][a-z]{1,20}\s+[A-Z][a-z]{1,20})\s*\)")
+        for m in paren_name_re.finditer(text):
+            name_val = m.group(1).strip()
+            if self._valid_person_name(text, m.start(1), name_val):
+                candidates.append(
+                    DetectedEntity(
+                        entity_type="PERSON",
+                        text=name_val,
+                        start=m.start(1),
+                        end=m.start(1) + len(name_val),
+                        method="parenthetical_ctx",
+                        confidence=0.87,
                         language=language,
                     )
                 )

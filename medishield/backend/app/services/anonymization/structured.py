@@ -71,9 +71,13 @@ def sanitize_structured_payload(
         used.add(cand)
         return cand
 
-    def _clean(node: Any) -> Any:
+    def _clean(node: Any, parent_key: str = "") -> Any:
         nonlocal total_applied
         if isinstance(node, str):
+            pk_low = parent_key.lower()
+            if any(tok in pk_low for tok in ("patient_name", "mariz", "mareez", "rogi", "attendant", "guardian", "full_name")) and node.strip():
+                total_applied += 1
+                return anonymizer.pseudonym_for("PERSON", node)
             _, ents = detector.scan(node)
             if ents:
                 collected_entities.extend(ents)
@@ -81,10 +85,10 @@ def sanitize_structured_payload(
             total_applied += applied
             return san_val
         if isinstance(node, list):
-            return [_clean(item) for item in node]
+            return [_clean(item, parent_key) for item in node]
         if isinstance(node, dict):
             used_keys: set[str] = set()
-            return {_clean_key(str(k), used_keys): _clean(v) for k, v in node.items()}
+            return {_clean_key(str(k), used_keys): _clean(v, str(k)) for k, v in node.items()}
         return node
 
     sanitized = _clean(obj)
