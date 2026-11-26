@@ -112,3 +112,10 @@ Consolidated reference for everything installed and configured in this workspace
 - **Runway** — Installed skill: `runway-to-invideo`
 - **Notion** — Installed plugin `notion` (`notion_notion` MCP) + global skills: `notion-automation`, `notion-manual-import`, `notion-template-business`
 
+### Deep Learning, Reinforcement Learning, Google Colab & Kaggle
+- **Google Colab** — Installed official skill: `colab-operator` (`googlecolab/google-colab-cli`)
+- **Kaggle** — Installed official skills: `kaggle-cli` (`kaggle/kaggle-cli`), `write-kaggle-benchmarks` (`kaggle/kaggle-skills`)
+- **Reinforcement Learning & Post-Training** — Installed skills: `verl-rl-training` (`orchestra-research/ai-research-skills`), `grpo-rlvr-training` (`wshobson/agents`), `trl-training`
+- **Deep Learning & LLM Training** — Installed skills: `huggingface-llm-trainer` (`huggingface/skills`), `finetune-llm`, `train-sentence-transformers`, `unsloth-finetuning`, `huggingface-model-trainer`, `huggingface-vision-trainer`, `huggingface-zerogpu`, `remote-gpu-trainer`, `gpu-server-management`, `gpu-kubernetes-operations`, `machine-learning-ops-ml-pipeline`, `ml-engineer`, `mlops-engineer`, `claude-scientific-skills`
+- **Related Marketplace Plugins** — `antigravity-plugins-partners/plugin/databricks`, `antigravity-plugins-partners/plugin/arize-skills` (LLM evals & tracing), `antigravity-plugins-official/plugin/science-overview`
+
