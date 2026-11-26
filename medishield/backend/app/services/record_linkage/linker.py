@@ -187,7 +187,25 @@ class RecordLinkageEngine:
             has_strong_id = field_scores.get("phone", 0.0) >= 0.90
             agreeing = sum(1 for v in field_scores.values() if v >= 0.75)
 
-            if final_score >= 0.85 and (has_strong_id or agreeing >= 3) and llr_total >= 4.0:
+            # Shared-family-phone & distinct-first-name guardrail
+            first_a = na.split()[0] if na.split() else ""
+            first_b = nb.split()[0] if nb.split() else ""
+            is_initial = (len(first_a) <= 2 or len(first_b) <= 2) and (
+                first_a[:1] == first_b[:1]
+            )
+            distinct_first_names = (
+                bool(first_a and first_b)
+                and not is_initial
+                and JaroWinkler.normalized_similarity(first_a, first_b) < 0.72
+            )
+
+            if distinct_first_names:
+                if final_score >= threshold and agreeing >= 2:
+                    decision = "uncertain_review"
+                    reasons.append("Distinct first names with shared phone/demographics -> review")
+                else:
+                    continue
+            elif final_score >= 0.85 and (has_strong_id or agreeing >= 3) and llr_total >= 4.0:
                 decision = "high_confidence_match"
             elif final_score >= threshold and agreeing >= 2:
                 decision = "uncertain_review"

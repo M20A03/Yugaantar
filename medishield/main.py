@@ -18,11 +18,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "backend"))
 
 from app.models.schemas import PolicyConfig  # noqa: E402
 from app.services.anonymization.anonymizer import AnonymizerEngine  # noqa: E402
+from app.services.anonymization.structured import (  # noqa: E402
+    StructuredDepthError,
+    sanitize_structured_payload,
+)
 from app.services.medical_fidelity.fidelity import MedicalFidelityEngine  # noqa: E402
 from app.services.pii_detection.detector import MultilingualPIIDetector  # noqa: E402
 
 
 SUPPORTED_EXTS = {".txt", ".csv", ".tsv", ".json"}
+MAX_FILE_BYTES = 10 * 1024 * 1024
 
 
 def sha256_file(path: Path) -> str:
@@ -75,6 +80,19 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
                     "output": None,
                     "status": "quarantined",
                     "reason": "unsupported format",
+                }
+            )
+            continue
+
+        if src_path.stat().st_size > MAX_FILE_BYTES:
+            counts["files_quarantined"] += 1
+            counts["records_quarantined"] += 1
+            report_files.append(
+                {
+                    "input_sha256": file_hash,
+                    "output": None,
+                    "status": "quarantined",
+                    "reason": "file exceeds size limit",
                 }
             )
             continue
@@ -159,28 +177,30 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
                 used_headers.add(cand)
                 header_map[fn] = cand
 
-            dst_path.parent.mkdir(parents=True, exist_ok=True)
+            import io as _io
+            buf = _io.StringIO()
             san_fieldnames = [header_map[fn] for fn in raw_fieldnames]
-            with dst_path.open("w", encoding="utf-8", newline="") as f_out:
-                writer = csv.DictWriter(f_out, fieldnames=san_fieldnames, delimiter=delim)
-                writer.writeheader()
-                for row_idx, row in enumerate(rows):
-                    counts["records_processed"] += 1
-                    san_row = {}
-                    patient_psn = None
-                    for k, v in row.items():
-                        val = v or ""
-                        _, ents = detector.scan(val)
-                        counts["identifiers_detected"] += len(ents)
-                        san_val, _ = anonymizer.anonymize(val, ents, policy)
-                        for e in ents:
-                            if e.entity_type == "PERSON" and patient_psn is None:
-                                patient_psn = anonymizer.pseudonym_for("PERSON", e.text).strip("[]")
-                        san_row[header_map[k]] = san_val
-                    writer.writerow(san_row)
-                    records_jsonl_lines.append(
-                        json.dumps({"file": rel_out, "loc": f"row:{row_idx}", "patient": patient_psn})
-                    )
+            writer = csv.DictWriter(buf, fieldnames=san_fieldnames, delimiter=delim)
+            writer.writeheader()
+            file_records_jsonl: List[str] = []
+            for row_idx, row in enumerate(rows):
+                counts["records_processed"] += 1
+                san_row = {}
+                patient_psn = None
+                for k, v in row.items():
+                    val = v or ""
+                    _, ents = detector.scan(val)
+                    counts["identifiers_detected"] += len(ents)
+                    san_val, _ = anonymizer.anonymize(val, ents, policy)
+                    for e in ents:
+                        if e.entity_type == "PERSON" and patient_psn is None:
+                            patient_psn = anonymizer.pseudonym_for("PERSON", e.text).strip("[]")
+                    san_row[header_map[k]] = san_val
+                writer.writerow(san_row)
+                file_records_jsonl.append(
+                    json.dumps({"file": rel_out, "loc": f"row:{row_idx}", "patient": patient_psn})
+                )
+            sanitized_out_text = buf.getvalue()
         elif ext == ".json":
             try:
                 obj = json.loads(raw_text)
@@ -196,51 +216,32 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
                 report_files.append({"input_sha256": file_hash, "output": None, "status": "quarantined", "reason": "empty or unsupported json"})
                 continue
 
-            def _clean_key(key: str, used: set[str]) -> str:
-                _, k_ents = detector.scan(key.replace("_", " ").replace("-", " "))
-                if k_ents:
-                    base_k = anonymizer.opaque_metadata_id("key", key)
-                else:
-                    base_k = key
-                cand = base_k
-                suffix = 2
-                while cand in used:
-                    cand = f"{base_k}_{suffix}"
-                    suffix += 1
-                used.add(cand)
-                return cand
+            try:
+                cleaned_obj, j_ents, _ = sanitize_structured_payload(obj, detector, anonymizer, policy)
+            except StructuredDepthError:
+                counts["files_quarantined"] += 1
+                counts["records_quarantined"] += 1
+                report_files.append({"input_sha256": file_hash, "output": None, "status": "quarantined", "reason": "json nesting too deep"})
+                continue
 
-            def _clean(x: Any) -> Any:
-                if isinstance(x, str):
-                    _, e_list = detector.scan(x)
-                    counts["identifiers_detected"] += len(e_list)
-                    s_val, _ = anonymizer.anonymize(x, e_list, policy)
-                    return s_val
-                if isinstance(x, list):
-                    return [_clean(i) for i in x]
-                if isinstance(x, dict):
-                    used_keys: set[str] = set()
-                    return {_clean_key(str(k), used_keys): _clean(v) for k, v in x.items()}
-                return x
-
-            cleaned_obj = _clean(obj)
-            dst_path.parent.mkdir(parents=True, exist_ok=True)
-            dst_path.write_text(json.dumps(cleaned_obj, ensure_ascii=False, indent=2), encoding="utf-8")
-
+            counts["identifiers_detected"] += len(j_ents)
+            sanitized_out_text = json.dumps(cleaned_obj, ensure_ascii=False, indent=2)
+            file_records_jsonl = []
             if isinstance(obj, list):
                 for idx, item in enumerate(obj):
                     counts["records_processed"] += 1
                     _, item_ents = detector.scan(json.dumps(item, ensure_ascii=False))
                     psn = next((anonymizer.pseudonym_for("PERSON", e.text).strip("[]") for e in item_ents if e.entity_type == "PERSON"), None)
-                    records_jsonl_lines.append(json.dumps({"file": rel_out, "loc": f"/{idx}", "patient": psn}))
+                    file_records_jsonl.append(json.dumps({"file": rel_out, "loc": f"/{idx}", "patient": psn}))
             else:
                 counts["records_processed"] += 1
                 _, ents = detector.scan(raw_text)
                 psn = next((anonymizer.pseudonym_for("PERSON", e.text).strip("[]") for e in ents if e.entity_type == "PERSON"), None)
-                records_jsonl_lines.append(json.dumps({"file": rel_out, "loc": "/", "patient": psn}))
+                file_records_jsonl.append(json.dumps({"file": rel_out, "loc": "/", "patient": psn}))
         else:
             lines = [ln for ln in raw_text.splitlines() if ln.strip()]
             san_lines: List[str] = []
+            file_records_jsonl = []
             for idx, line in enumerate(lines):
                 counts["records_processed"] += 1
                 _, ents = detector.scan(line)
@@ -248,18 +249,49 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
                 san_txt, _ = anonymizer.anonymize(line, ents, policy)
                 san_lines.append(san_txt)
                 psn = next((anonymizer.pseudonym_for("PERSON", e.text).strip("[]") for e in ents if e.entity_type == "PERSON"), None)
-                records_jsonl_lines.append(json.dumps({"file": rel_out, "loc": f"line:{idx}" if len(lines) > 1 else "doc", "patient": psn}))
-            dst_path.parent.mkdir(parents=True, exist_ok=True)
-            dst_path.write_text("\n".join(san_lines) + ("\n" if san_lines else ""), encoding="utf-8")
+                file_records_jsonl.append(json.dumps({"file": rel_out, "loc": f"line:{idx}" if len(lines) > 1 else "doc", "patient": psn}))
+            sanitized_out_text = "\n".join(san_lines) + ("\n" if san_lines else "")
 
-        san_out_text = dst_path.read_text(encoding="utf-8")
-        fid_res = fidelity.evaluate(raw_text, san_out_text)
-        file_status = "sanitized"
+        # Fail-closed clinical integrity gate: verify, attempt safe recovery, or withhold
+        fid_res = fidelity.evaluate(raw_text, sanitized_out_text)
+        if fid_res["preservation_score"] < 1.0 and ext == ".txt":
+            lost_vals = {item["value"].lower() for item in fid_res["lost_items"]}
+            repaired_lines: List[str] = []
+            for line in [ln for ln in raw_text.splitlines() if ln.strip()]:
+                _, ents = detector.scan(line)
+                safe_ents = [e for e in ents if e.text.lower() not in lost_vals]
+                san_txt, _ = anonymizer.anonymize(line, safe_ents, policy)
+                repaired_lines.append(san_txt)
+            candidate_text = "\n".join(repaired_lines) + ("\n" if repaired_lines else "")
+            fid_retry = fidelity.evaluate(raw_text, candidate_text)
+            if fid_retry["preservation_score"] >= 1.0:
+                sanitized_out_text = candidate_text
+                fid_res = fid_retry
+
         if fid_res["preservation_score"] < 1.0:
+            counts["files_quarantined"] += 1
+            counts["records_quarantined"] += 1
             counts["clinical_integrity_flagged"] += 1
-            file_status = "flagged_clinical_loss"
+            report_files.append(
+                {
+                    "input_sha256": file_hash,
+                    "output": None,
+                    "status": "quarantined_clinical_loss",
+                    "reason": "clinical integrity verification failed",
+                    "clinical_preservation": fid_res["preservation_score"],
+                }
+            )
+            continue
+
+        dst_path.parent.mkdir(parents=True, exist_ok=True)
+        dst_path.write_text(sanitized_out_text, encoding="utf-8")
+        records_jsonl_lines.extend(file_records_jsonl)
         counts["files_sanitized"] += 1
-        report_files.append({"input_sha256": file_hash, "output": rel_out, "status": file_status, "clinical_preservation": fid_res["preservation_score"]})
+        report_files.append({"input_sha256": file_hash, "output": rel_out, "status": "sanitized", "clinical_preservation": fid_res["preservation_score"]})
+
+    counts["output_completeness"] = round(
+        counts["files_sanitized"] / counts["files_total"], 4
+    ) if counts["files_total"] else 1.0
 
     report = {
         "files": report_files,

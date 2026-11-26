@@ -85,7 +85,9 @@ export interface PrivacyDefenseResponse {
   after_reidentification_rate: number;
   unique_confident_reid_rate?: number;
   forced_top_match_accuracy?: number;
+  random_guess_baseline?: number;
   attacker_coverage?: number;
+  age_band_size?: number;
   risk_reduction_pct: number;
   before_unique_rate: number;
   after_unique_rate: number;
@@ -103,6 +105,18 @@ export interface PrivacyDefenseResponse {
   latency_ms: number;
   remaining_limitations?: string[];
   disclaimer: string;
+}
+
+export interface MetadataInspectResponse {
+  traversal_blocked: boolean;
+  filename_pii_detected: boolean;
+  sanitized_filename: string;
+  directory_pii_detected: boolean;
+  sanitized_directory: string;
+  headers: Array<{ original: string; sanitized: string; pii_detected: string }>;
+  sanitized_json_preview: unknown;
+  quarantine_rules: string[];
+  latency_ms: number;
 }
 
 const BASE = "/api";
@@ -200,8 +214,20 @@ export const api = {
       body: JSON.stringify({ original_text, sanitized_text }),
     }),
   runEvaluation: () => req<EvaluationResponse>("/evaluation/run"),
-  evaluatePrivacyDefense: (n_patients = 36, seed = 42) =>
-    req<PrivacyDefenseResponse>(`/privacy-defense/evaluate?n_patients=${n_patients}&seed=${seed}`, {
+  evaluatePrivacyDefense: (n_patients = 100, seed = 42, age_band_size = 10) =>
+    req<PrivacyDefenseResponse>(
+      `/privacy-defense/evaluate?n_patients=${n_patients}&seed=${seed}&age_band_size=${age_band_size}`,
+      { method: "POST" }
+    ),
+  inspectMetadata: (payload: {
+    filename: string;
+    directory: string;
+    headers: string[];
+    json_sample: unknown;
+  }) =>
+    req<MetadataInspectResponse>("/metadata/inspect", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     }),
 };

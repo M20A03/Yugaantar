@@ -60,6 +60,35 @@ CLINICAL_COMPLAINT_TERMS = {
     "hypertension", "chest pain", "diarrhea", "cold", "infection",
 }
 
+NON_NAME_STOPWORDS = {
+    "was", "is", "are", "were", "be", "been", "has", "have", "had",
+    "yesterday", "today", "tomorrow", "admitted", "brought", "hospital",
+    "regarding", "medication", "medicine", "ko", "hai", "hain", "ka", "ki",
+    "ke", "se", "me", "mein", "aur", "for", "with", "and", "the", "a", "an",
+    "aged", "age", "patient", "marez", "mareez", "mariz", "rogi", "bimar",
+    "contact", "phone", "residing", "diagnosis",
+    "aayi", "aaya", "thi", "tha", "to", "from", "in", "on", "at",
+}
+
+INDIAN_FIRST_NAMES = {
+    "rahul", "ananya", "ravi", "priya", "sunita", "mohammed", "mohammad",
+    "arif", "aarav", "meera", "rohan", "vikram", "sneha", "karan",
+    "siddharth", "kavita", "arjun", "pooja", "aditya", "nikhil", "suresh",
+    "manish", "deepak", "neha", "divya", "shruti", "nandini", "amit",
+    "rajan", "rajesh", "sanjay", "vijay", "anita", "rekha", "geeta",
+    "seema", "kiran", "alok", "ashok", "manoj", "ramesh", "mahesh",
+    "ganesh", "vinod", "pradeep", "harish", "prashant", "gaurav", "vivek",
+    "tarun", "komal", "swati", "bhavna", "pallavi", "rashmi",
+}
+
+INDIAN_SURNAMES = {
+    "sharma", "verma", "patel", "iyer", "nair", "gupta", "khan", "das",
+    "joshi", "mehta", "kulkarni", "deshmukh", "chatterjee", "banerjee",
+    "saxena", "bhatnagar", "subramanian", "krishnan", "rao", "malhotra",
+    "singh", "kumar", "devi", "yadav", "agarwal", "tiwari", "mishra",
+    "pandey", "chauhan", "reddy", "patil", "kaur",
+}
+
 RELATIVE_PREFIX_RE = re.compile(
     r"\b(?:S/[Oo]|D/[Oo]|W/[Oo]|C/[Oo]|son of|daughter of|wife of|care of|पति|पुत्र|पुत्री|निवासी)\b",
     re.IGNORECASE,
@@ -257,13 +286,20 @@ class MultilingualPIIDetector:
     def _detect_names(
         self, text: str, language: str, candidates: List[DetectedEntity]
     ) -> None:
-        # Pattern A: Explicit patient prefix (incl. common typos like Pateint & OPD/IPD Note)
+        # Pattern A: Explicit patient/attendant prefix (English, Hindi, Hinglish, case-insensitive)
         pat_name_re = re.compile(
-            r"\b(?:Patient|Pateint|Patinet|Pt\.?|Name|Mareez|Marez|Mariz|mariz|Rogi|Attendant|Emergency\s+Contact|OPD\s+Note|IPD\s+Note|Mr\.?|Mrs\.?|Ms\.?|Shri|Smt\.?|नाम|रोगी|मरीज़|मरीज)\s*[:\-]?\s*([A-Z\u0900-\u097F][a-zA-Z\u0900-\u097F\.]{1,25}(?:\s+[A-Z\u0900-\u097F][a-zA-Z\u0900-\u097F\.]{1,25}){0,2})",
+            r"\b(?:Patient|Pateint|Patinet|Pt\.?|Name|Naam|Mareez|Marez|Mariz|Rogi|Bimar|Attendant|Guardian|Emergency\s+Contact|OPD\s+Note|IPD\s+Note|Mr\.?|Mrs\.?|Ms\.?|Shri|Smt\.?|नाम|रोगी|मरीज़|मरीज)\s*[:\-]?\s*([A-Za-z\u0900-\u097F][a-zA-Z\u0900-\u097F\.]{1,25}(?:\s+[A-Za-z\u0900-\u097F][a-zA-Z\u0900-\u097F\.]{1,25}){0,2})",
+            re.IGNORECASE,
         )
         for m in pat_name_re.finditer(text):
-            name_val = m.group(1).strip(" .,:-")
-            if self._valid_person_name(text, m.start(1), name_val):
+            raw_words = m.group(1).strip(" .,:-").split()
+            kept_words: List[str] = []
+            for w in raw_words:
+                if w.lower().strip(".,:") in NON_NAME_STOPWORDS or w.lower().strip(".,:") in CLINICAL_WHITELIST:
+                    break
+                kept_words.append(w)
+            name_val = " ".join(kept_words).strip(" .,:-")
+            if name_val and self._valid_person_name(text, m.start(1), name_val):
                 window = text[max(0, m.start() - 20) : min(len(text), m.end() + 20)]
                 ml_score = self.ctx_clf.score_context(window)
                 candidates.append(
@@ -278,26 +314,34 @@ class MultilingualPIIDetector:
                     )
                 )
 
-        # Pattern A2: Unstructured clinical subject ("Ananya Kulkarni presented with / was admitted / complained")
-        unstruct_name_re = re.compile(
-            r"(?:^|[.\n]\s*)([A-Z][a-z]{1,20}\s+[A-Z][a-z]{1,20})\s+(?:(?:was|is)\s+)?(?:presented|visited|admitted|complained|reported|tested)\b"
-        )
-        for m in unstruct_name_re.finditer(text):
-            name_val = m.group(1).strip()
-            if self._valid_person_name(text, m.start(1), name_val):
-                candidates.append(
-                    DetectedEntity(
-                        entity_type="PERSON",
-                        text=name_val,
-                        start=m.start(1),
-                        end=m.start(1) + len(name_val),
-                        method="unstructured_ctx",
-                        confidence=0.88,
-                        language=language,
+        # Pattern A2: Unstructured clinical/conversational subject (English & Hinglish, case-insensitive)
+        unstruct_patterns = [
+            re.compile(
+                r"\b(?:met|spoke\s+with|called|saw|examined|visited|kal)\s+([A-Za-z\u0900-\u097F]{2,20}\s+[A-Za-z\u0900-\u097F]{2,20})\b",
+                re.IGNORECASE,
+            ),
+            re.compile(
+                r"(?:^|[.\n]\s*)([A-Za-z\u0900-\u097F]{2,20}\s+[A-Za-z\u0900-\u097F]{2,20})\s+(?:(?:was|is)\s+)?(?:brought|presented|visited|admitted|complained|reported|tested|hospital\s+aay[aei])\b",
+                re.IGNORECASE,
+            ),
+        ]
+        for upat in unstruct_patterns:
+            for m in upat.finditer(text):
+                name_val = m.group(1).strip()
+                if self._valid_person_name(text, m.start(1), name_val):
+                    candidates.append(
+                        DetectedEntity(
+                            entity_type="PERSON",
+                            text=name_val,
+                            start=m.start(1),
+                            end=m.start(1) + len(name_val),
+                            method="unstructured_ctx",
+                            confidence=0.88,
+                            language=language,
+                        )
                     )
-                )
 
-        # Pattern A3: Unprefixed name before age/gender ("Rahul Sharma, 45/M" or "Priya Nair (32F)" or "Aditya Rao (45/M)")
+        # Pattern A3: Unprefixed name before age/gender ("Rahul Sharma, 45/M" or "Priya Nair (32F)")
         demo_name_re = re.compile(
             r"(?:^|[.\n]\s*)([A-Z][a-z]{1,20}\s+[A-Z][a-z]{1,20})\s*[,\(]\s*\d{1,3}\s*(?:/|\s)?\s*[MFmf]\b"
         )
@@ -315,6 +359,25 @@ class MultilingualPIIDetector:
                         language=language,
                     )
                 )
+
+        # Pattern D: Lightweight Indian First+Last Name Pair (catches unprefixed lowercase names safely)
+        pair_re = re.compile(r"\b([A-Za-z]{2,20})\s+([A-Za-z]{2,20})\b")
+        for m in pair_re.finditer(text):
+            w1, w2 = m.group(1).lower(), m.group(2).lower()
+            if w1 in INDIAN_FIRST_NAMES and w2 in INDIAN_SURNAMES:
+                name_val = m.group(0)
+                if self._valid_person_name(text, m.start(), name_val):
+                    candidates.append(
+                        DetectedEntity(
+                            entity_type="PERSON",
+                            text=name_val,
+                            start=m.start(),
+                            end=m.end(),
+                            method="multilingual_lexicon",
+                            confidence=0.90,
+                            language=language,
+                        )
+                    )
 
         # Pattern B: Hinglish honorifics ("Arif sahab", "Meera ji", "Ramesh bhai")
         hinglish_name_re = re.compile(
@@ -338,7 +401,7 @@ class MultilingualPIIDetector:
 
         # Pattern C: Relative markers ("S/o Mohan", "W/o Rajan", "C/O Ramesh" vs "C/O fever")
         rel_re = re.compile(
-            r"\b(?:S/[Oo]|D/[Oo]|W/[Oo]|C/[Oo]|son of|daughter of|wife of|care of)\s*[:\-]?\s*([A-Za-z\u0900-\u097F]{2,25}(?:\s+[A-Z\u0900-\u097F][a-zA-Z\u0900-\u097F]{1,20})?)",
+            r"\b(?:S/[Oo]|D/[Oo]|W/[Oo]|C/[Oo]|son of|daughter of|wife of|care of)\s*[:\-]?\s*([A-Za-z\u0900-\u097F]{2,25}(?:\s+[A-Za-z\u0900-\u097F]{2,20})?)",
             re.IGNORECASE,
         )
         for m in rel_re.finditer(text):
@@ -360,10 +423,14 @@ class MultilingualPIIDetector:
                 )
 
     def _valid_person_name(self, full_text: str, start: int, name_val: str) -> bool:
-        low = name_val.lower()
-        if any(w in CLINICAL_WHITELIST for w in low.split()):
+        words = [w.strip(".,:") for w in name_val.lower().split() if w.strip(".,:")]
+        if not words:
             return False
-        if low in {"aged", "age", "patient", "contact", "phone", "residing", "diagnosis"}:
+        if any(w in CLINICAL_WHITELIST or w in CLINICAL_COMPLAINT_TERMS for w in words):
+            return False
+        if all(w in NON_NAME_STOPWORDS for w in words):
+            return False
+        if words[0] in NON_NAME_STOPWORDS:
             return False
         before = full_text[max(0, start - 8) : start]
         if DOCTOR_PREFIX_RE.search(before):

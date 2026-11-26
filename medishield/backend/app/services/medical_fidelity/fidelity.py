@@ -15,18 +15,18 @@ CLINICAL_PATTERNS: List[Tuple[str, re.Pattern]] = [
     (
         "medication",
         re.compile(
-            r"\b(?:Metformin|Ramipril|Dolo\s*650|Paracetamol|Amoxicillin|Atorvastatin|Insulin|Azithromycin|Aspirin|Pantoprazole|Cetirizine|Losartan|Budesonide|Rifampicin)\b",
+            r"\b(?:Metformin|Ramipril|Dolo\s*650|Paracetamol|Amoxicillin|Atorvastatin|Insulin|Azithromycin|Aspirin|Pantoprazole|Cetirizine|Losartan|Budesonide|Rifampicin|Warfarin|Glimepiride|Telmisartan|Levothyroxine|Clopidogrel|Omeprazole|Ceftriaxone|Ibuprofen)\b",
             re.IGNORECASE,
         ),
     ),
     (
         "dosage",
-        re.compile(r"\b(?:\d+(?:\.\d+)?\s*(?:mg|ml|mcg|g|units?)|\d\-\d\-\d|BD\s*x\s*\d+\s*days?|BD|OD|TDS|SOS)\b", re.IGNORECASE),
+        re.compile(r"\b(?:\d+(?:\.\d+)?\s*(?:mg|ml|mcg|g|units?|IU|puffs?)|\d\-\d\-\d|BD\s*x\s*\d+\s*days?|BD|OD|TDS|QID|HS|SOS|q\d+h)\b", re.IGNORECASE),
     ),
     (
         "vital_or_lab",
         re.compile(
-            r"\b(?:BP\s*[:\-]?\s*\d{2,3}/\d{2,3}\s*(?:mmHg)?|Blood\s*pressure\s*[:\-]?\s*\d{2,3}/\d{2,3}\s*(?:mmHg)?|SpO2\s*[:\-]?\s*\d{2,3}%|HbA1c\s*[:\-]?\s*\d+(?:\.\d+)?%|Creatinine\s*[:\-]?\s*\d+(?:\.\d+)?\s*(?:mg/dL)?|Hemoglobin\s*[:\-]?\s*\d+(?:\.\d+)?\s*(?:g/dL)?|Platelets\s*[:\-]?\s*\d+\s*(?:/uL)?|Temp\s*[:\-]?\s*\d{2,3}(?:\.\d+)?\s*[CF]?)\b",
+            r"\b(?:BP\s*[:\-]?\s*\d{2,3}/\d{2,3}\s*(?:mmHg)?|Blood\s*pressure\s*[:\-]?\s*\d{2,3}/\d{2,3}\s*(?:mmHg)?|HR\s*[:\-]?\s*\d{2,3}\s*(?:bpm)?|RR\s*[:\-]?\s*\d{1,2}\s*(?:/min)?|SpO2\s*[:\-]?\s*\d{2,3}%|HbA1c\s*[:\-]?\s*\d+(?:\.\d+)?%|Creatinine\s*[:\-]?\s*\d+(?:\.\d+)?\s*(?:mg/dL)?|Hemoglobin\s*[:\-]?\s*\d+(?:\.\d+)?\s*(?:g/dL)?|TSH\s*[:\-]?\s*\d+(?:\.\d+)?\s*(?:mIU/L)?|Platelets\s*[:\-]?\s*\d+\s*(?:/uL)?|WBC\s*[:\-]?\s*\d+\s*(?:/cumm)?|Temp\s*[:\-]?\s*\d{2,3}(?:\.\d+)?\s*[CF]?)\b",
             re.IGNORECASE,
         ),
     ),

@@ -175,13 +175,13 @@ def generate_four_system_cohort(
     return hospital_records, voter_list
 
 
-def _age_bucket(age: int) -> str:
-    low = (age // 10) * 10
-    return f"{low}-{low + 9}"
+def _age_bucket(age: int, band_size: int = 10) -> str:
+    low = (age // band_size) * band_size
+    return f"{low}-{low + band_size - 1}"
 
 
 def run_reidentification_defense_lab(
-    n_patients: int = 36, seed: int = 42
+    n_patients: int = 36, seed: int = 42, age_band_size: int = 10
 ) -> Dict[str, Any]:
     """Run defensive re-identification simulation before and after MediShield."""
     t0 = time.perf_counter()
@@ -193,7 +193,7 @@ def run_reidentification_defense_lab(
     anonymizer = AnonymizerEngine()
     risk_analyzer = RiskAnalyzer()
     fidelity_engine = MedicalFidelityEngine()
-    policy = PolicyConfig()
+    policy = PolicyConfig(age_band_size=age_band_size)
 
     total = len(hospital_records)
     before_reid_hits = 0
@@ -213,7 +213,7 @@ def run_reidentification_defense_lab(
     # Build voter index for attacker simulation (used strictly for aggregate counting)
     voter_by_phone = {v["phone"]: v for v in voter_list}
     voter_qi_counts = Counter((v["age"], v["gender"], v["city"]) for v in voter_list)
-    voter_bucket_counts = Counter((_age_bucket(v["age"]), v["gender"]) for v in voter_list)
+    voter_bucket_counts = Counter((_age_bucket(v["age"], age_band_size), v["gender"]) for v in voter_list)
 
     for rec in hospital_records:
         sys_name = rec["system"]
@@ -251,7 +251,7 @@ def run_reidentification_defense_lab(
             sys_stats[sys_name]["direct_leaks"] += 1
 
         # After k-anonymity generalization (age bucket + gender, city generalized to region)
-        bucket_qi = (_age_bucket(rec["age"]), rec["gender"])
+        bucket_qi = (_age_bucket(rec["age"], age_band_size), rec["gender"])
         after_qis.append(bucket_qi)
         distinct_patient_qis[rec["patient_id"]] = bucket_qi
 
@@ -299,7 +299,9 @@ def run_reidentification_defense_lab(
         "after_reidentification_rate": after_rate,
         "unique_confident_reid_rate": after_rate,
         "forced_top_match_accuracy": forced_top_acc,
+        "random_guess_baseline": round(1.0 / len(voter_list), 4) if voter_list else 0.0,
         "attacker_coverage": 1.0 if total else 0.0,
+        "age_band_size": age_band_size,
         "risk_reduction_pct": reduction_pct,
         "before_unique_rate": round(before_unique / total, 4) if total else 0.0,
         "after_unique_rate": round(after_unique / len(distinct_patient_qis), 4) if distinct_patient_qis else 0.0,

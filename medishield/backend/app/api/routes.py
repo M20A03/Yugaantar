@@ -26,6 +26,11 @@ from app.models.schemas import (
     ScanResponse,
 )
 from app.services.anonymization.anonymizer import AnonymizerEngine
+from app.services.anonymization.structured import (
+    StructuredDepthError,
+    sanitize_structured_payload,
+    try_parse_json_payload,
+)
 from app.services.evaluation.evaluator import run_evaluation_suite
 from app.services.medical_fidelity.fidelity import MedicalFidelityEngine
 from app.services.pii_detection.detector import MultilingualPIIDetector
@@ -83,8 +88,21 @@ def scan_record(req: ScanRequest) -> ScanResponse:
 @router.post("/anonymize", response_model=AnonymizeResponse)
 def anonymize_record(req: AnonymizeRequest) -> AnonymizeResponse:
     t0 = time.perf_counter()
-    language, entities = detector.scan(req.text)
-    sanitized, applied = anonymizer.anonymize(req.text, entities, req.policy)
+    try:
+        parsed_json = try_parse_json_payload(req.text)
+    except StructuredDepthError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if parsed_json is not None:
+        sanitized_obj, entities, applied = sanitize_structured_payload(
+            parsed_json, detector, anonymizer, req.policy
+        )
+        sanitized = json.dumps(sanitized_obj, ensure_ascii=False, indent=2)
+        language = "structured_json"
+    else:
+        language, entities = detector.scan(req.text)
+        sanitized, applied = anonymizer.anonymize(req.text, entities, req.policy)
+
     r_before, r_after = risk_analyzer.score_single_text(entities)
     fid = fidelity_engine.evaluate(req.text, sanitized)
     dt = (time.perf_counter() - t0) * 1000.0
@@ -335,6 +353,60 @@ def run_eval() -> Dict[str, Any]:
 
 
 @router.post("/privacy-defense/evaluate")
-def evaluate_privacy_defense(n_patients: int = 36, seed: int = 42) -> Dict[str, Any]:
-    safe_n = max(12, min(n_patients, 100))
-    return run_reidentification_defense_lab(n_patients=safe_n, seed=seed)
+def evaluate_privacy_defense(
+    n_patients: int = 100, seed: int = 42, age_band_size: int = 10
+) -> Dict[str, Any]:
+    safe_n = max(12, min(n_patients, 5000))
+    safe_band = age_band_size if age_band_size in {2, 5, 10, 20} else 10
+    return run_reidentification_defense_lab(
+        n_patients=safe_n, seed=seed, age_band_size=safe_band
+    )
+
+
+@router.post("/metadata/inspect")
+def inspect_metadata_security(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Inspect and sanitize filename, directory path, CSV headers, and JSON keys."""
+    t0 = time.perf_counter()
+    filename = str(payload.get("filename", "patient_rahul_9876543210.csv"))
+    directory = str(payload.get("directory", "Aarav_Sharma_9811223344"))
+    headers = [str(h) for h in payload.get("headers", ["patient_rahul_sharma", "diagnosis", "stay_days"])]
+    json_sample = payload.get("json_sample", {"Rahul Sharma": "Metformin 500 mg", "Priya Verma": "Insulin 10 units"})
+
+    # Path traversal check
+    traversal_blocked = ".." in filename or ".." in directory or filename.startswith("/")
+
+    _, fn_ents = detector.scan(filename.rsplit(".", 1)[0].replace("_", " ").replace("-", " "))
+    ext = ("." + filename.rsplit(".", 1)[1]) if "." in filename else ""
+    safe_filename = f"{anonymizer.opaque_metadata_id('redacted', filename)}{ext}" if fn_ents else filename
+
+    _, dir_ents = detector.scan(directory.replace("_", " ").replace("-", " "))
+    safe_dir = anonymizer.opaque_metadata_id("dir", directory) if dir_ents else directory
+
+    sanitized_headers: List[Dict[str, str]] = []
+    for h in headers[:30]:
+        _, h_ents = detector.scan(h.replace("_", " ").replace("-", " "))
+        safe_h = anonymizer.opaque_metadata_id("field", h) if h_ents else h
+        sanitized_headers.append({"original": h, "sanitized": safe_h, "pii_detected": str(bool(h_ents))})
+
+    sanitized_json = {}
+    if isinstance(json_sample, (dict, list)):
+        sanitized_json, _, _ = sanitize_structured_payload(
+            json_sample, detector, anonymizer, PolicyConfig()
+        )
+
+    return {
+        "traversal_blocked": traversal_blocked,
+        "filename_pii_detected": bool(fn_ents),
+        "sanitized_filename": safe_filename,
+        "directory_pii_detected": bool(dir_ents),
+        "sanitized_directory": safe_dir,
+        "headers": sanitized_headers,
+        "sanitized_json_preview": sanitized_json,
+        "quarantine_rules": [
+            "Unsupported extensions (.exe, .bin, etc.) -> quarantined by SHA-256 only",
+            "Broken UTF-8 encodings & empty files -> quarantined, never copied to sanitized/",
+            "Malformed CSV/TSV rows or invalid/deep JSON (>32 levels) -> quarantined",
+            "Clinical integrity loss unresolved after safe recovery -> quarantined_clinical_loss",
+        ],
+        "latency_ms": round((time.perf_counter() - t0) * 1000.0, 2),
+    }

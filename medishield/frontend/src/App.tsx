@@ -11,7 +11,15 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { api, AnonymizeResponse, DetectedEntity, EvaluationResponse, MetricsResponse, PrivacyDefenseResponse } from "./api";
+import {
+  api,
+  AnonymizeResponse,
+  DetectedEntity,
+  EvaluationResponse,
+  MetadataInspectResponse,
+  MetricsResponse,
+  PrivacyDefenseResponse,
+} from "./api";
 import {
   AlertIcon,
   FlaskIcon,
@@ -32,18 +40,23 @@ type TabId =
   | "risk"
   | "linkage"
   | "fidelity"
+  | "metadata"
   | "audit"
   | "evaluation"
   | "defense"
   | "settings";
 
 const SAMPLE_RECORDS: Record<string, string> = {
-  Hinglish:
-    "Patient Rahul Sharma, aged 45, residing at MG Road, Bengaluru. Contact: 9876543210. Patient ko Type 2 Diabetes hai. Metformin 500 mg prescribed. Blood pressure: 130/85 mmHg.",
-  Hindi:
+  "Demo 1: Hinglish":
+    "Patient Rahul Sharma, aged 45, residing at MG Road, Bengaluru. Contact: 9876543210. Patient ko Type 2 Diabetes hai. Metformin 500 mg 1-0-1 prescribed. BP 130/85 mmHg, stay 4 days.",
+  "Demo 2: Hindi":
     "रोगी: मीरा देवी, उम्र 47 साल, पता: रामपुर गाँव, PIN 226001. C/O राजन कुमार. Dengue diagnosed. Paracetamol 500 mg BD x 5 days.",
-  Disambiguation:
-    "Pt. Sunita Yadav, C/O fever and cough since 3 days. Dr. Rajesh Gupta advised Ramipril 5 mg OD and Dolo 650 mg 1-0-1. Email: sunita.yadav@example.in, PAN: ABCDE1234F.",
+  "Demo 3: Lowercase":
+    "met rahul sharma yesterday; spoke with ananya kulkarni regarding Warfarin 2.5 mg, HbA1c 7.8%, Platelets 145000 /uL.",
+  "Demo 4: JSON String":
+    '{"patient_rahul_sharma": "Insulin 10 units BD", "contact": "+91-9811223344", "vitals": "SpO2 95%, BP 130/85 mmHg"}',
+  "Demo 5: Disambiguation":
+    "Pt. Sunita Yadav, C/O fever and cough since 3 days. Dr. Rajesh Gupta advised Ramipril 5 mg OD and Creatinine 1.2 mg/dL. Email: sunita.yadav@example.in, PAN: ABCDE1234F.",
 };
 
 const CHART_COLORS = ["#0D9488", "#059669", "#0284C7", "#D97706", "#E11D48", "#64748B"];
@@ -81,7 +94,7 @@ export default function App() {
   const [metrics, setMetrics] = useState<MetricsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [inputText, setInputText] = useState(SAMPLE_RECORDS.Hinglish);
+  const [inputText, setInputText] = useState(SAMPLE_RECORDS["Demo 1: Hinglish"]);
   const [policyMode, setPolicyMode] = useState("pseudonymization");
   const [ageBand, setAgeBand] = useState(5);
   const [scanEntities, setScanEntities] = useState<DetectedEntity[]>([]);
@@ -100,7 +113,7 @@ export default function App() {
   const [linkageThreshold, setLinkageThreshold] = useState(0.72);
   const [linkageResult, setLinkageResult] = useState<Awaited<ReturnType<typeof api.linkageAnalyze>> | null>(null);
 
-  const [fidelityOrig, setFidelityOrig] = useState(SAMPLE_RECORDS.Hinglish);
+  const [fidelityOrig, setFidelityOrig] = useState(SAMPLE_RECORDS["Demo 1: Hinglish"]);
   const [fidelitySan, setFidelitySan] = useState("");
   const [fidelityResult, setFidelityResult] = useState<Awaited<ReturnType<typeof api.evaluateFidelity>> | null>(null);
 
@@ -109,7 +122,14 @@ export default function App() {
 
   const [defenseResult, setDefenseResult] = useState<PrivacyDefenseResponse | null>(null);
   const [defenseBusy, setDefenseBusy] = useState(false);
-  const [defensePatients, setDefensePatients] = useState(36);
+  const [defensePatients, setDefensePatients] = useState(100);
+  const [defenseBand, setDefenseBand] = useState(10);
+
+  const [metaFilename, setMetaFilename] = useState("Rahul_Sharma_9876543210.csv");
+  const [metaDir, setMetaDir] = useState("Aarav_Sharma_9811223344");
+  const [metaHeaders, setMetaHeaders] = useState("patient_rahul_sharma,diagnosis,stay_days");
+  const [metaResult, setMetaResult] = useState<MetadataInspectResponse | null>(null);
+  const [metaBusy, setMetaBusy] = useState(false);
 
   const refreshMetrics = async () => {
     try {
@@ -224,12 +244,34 @@ export default function App() {
     setDefenseBusy(true);
     setError(null);
     try {
-      const res = await api.evaluatePrivacyDefense(defensePatients, 42);
+      const res = await api.evaluatePrivacyDefense(defensePatients, 42, defenseBand);
       setDefenseResult(res);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Privacy Defense Lab failed");
     } finally {
       setDefenseBusy(false);
+    }
+  };
+
+  const handleInspectMetadata = async () => {
+    setMetaBusy(true);
+    setError(null);
+    try {
+      const res = await api.inspectMetadata({
+        filename: metaFilename,
+        directory: metaDir,
+        headers: metaHeaders.split(",").map((s) => s.trim()).filter(Boolean),
+        json_sample: {
+          "Rahul Sharma": "Metformin 500 mg",
+          "Priya Verma": "Insulin 10 units",
+          clinical: { bp: "130/85 mmHg", stay: "4 days" },
+        },
+      });
+      setMetaResult(res);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Metadata inspection failed");
+    } finally {
+      setMetaBusy(false);
     }
   };
 
@@ -258,6 +300,7 @@ export default function App() {
     { id: "risk", label: "Privacy Risk Analysis", icon: <AlertIcon /> },
     { id: "linkage", label: "Record Linkage", icon: <LinkIcon /> },
     { id: "fidelity", label: "Medical Fidelity", icon: <PulseIcon /> },
+    { id: "metadata", label: "Metadata Security", icon: <ShieldIcon /> },
     { id: "audit", label: "Audit Logs", icon: <ListIcon /> },
     { id: "evaluation", label: "Evaluation Lab", icon: <FlaskIcon /> },
     { id: "defense", label: "Privacy Defense Lab", icon: <ShieldIcon /> },
@@ -503,26 +546,40 @@ export default function App() {
                   </div>
 
                   {anonResult && (
-                    <div className="grid grid-cols-3 gap-3 text-xs">
-                      <div className="rounded-lg bg-rose-50 border border-rose-200 p-2.5">
-                        <div className="text-rose-700 font-medium">Risk Before</div>
-                        <div className="font-mono font-bold text-rose-900 text-sm mt-0.5">
-                          {String(anonResult.risk_before.reidentification_risk_score)} ({String(anonResult.risk_before.risk_level)})
+                    <>
+                      <div className="grid grid-cols-3 gap-3 text-xs">
+                        <div className="rounded-lg bg-rose-50 border border-rose-200 p-2.5">
+                          <div className="text-rose-700 font-medium">Risk Before</div>
+                          <div className="font-mono font-bold text-rose-900 text-sm mt-0.5">
+                            {String(anonResult.risk_before.reidentification_risk_score)} ({String(anonResult.risk_before.risk_level)})
+                          </div>
+                        </div>
+                        <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-2.5">
+                          <div className="text-emerald-700 font-medium">Risk After</div>
+                          <div className="font-mono font-bold text-emerald-900 text-sm mt-0.5">
+                            {String(anonResult.risk_after.reidentification_risk_score)} ({String(anonResult.risk_after.risk_level)})
+                          </div>
+                        </div>
+                        <div className="rounded-lg bg-teal-50 border border-teal-200 p-2.5">
+                          <div className="text-teal-700 font-medium">Medical Fidelity</div>
+                          <div className="font-mono font-bold text-teal-900 text-sm mt-0.5">
+                            {(anonResult.fidelity.preservation_score * 100).toFixed(0)}% ({anonResult.fidelity.preserved_items.length}/{anonResult.fidelity.total_clinical_items})
+                          </div>
                         </div>
                       </div>
-                      <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-2.5">
-                        <div className="text-emerald-700 font-medium">Risk After</div>
-                        <div className="font-mono font-bold text-emerald-900 text-sm mt-0.5">
-                          {String(anonResult.risk_after.reidentification_risk_score)} ({String(anonResult.risk_after.risk_level)})
+                      <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs text-slate-700 space-y-1">
+                        <div className="font-semibold text-slate-900">Privacy Explainability Summary</div>
+                        <div>
+                          Detected <span className="font-mono font-semibold">{anonResult.entities.length}</span> sensitive spans in <span className="font-mono">{anonResult.language}</span> ({anonResult.latency_ms} ms) and applied <span className="font-mono">{anonResult.transformations_applied}</span> transformations ({policyMode}, {ageBand}-yr age band).
                         </div>
-                      </div>
-                      <div className="rounded-lg bg-teal-50 border border-teal-200 p-2.5">
-                        <div className="text-teal-700 font-medium">Medical Fidelity</div>
-                        <div className="font-mono font-bold text-teal-900 text-sm mt-0.5">
-                          {(anonResult.fidelity.preservation_score * 100).toFixed(0)}% ({anonResult.fidelity.preserved_items.length}/{anonResult.fidelity.total_clinical_items})
+                        <div>
+                          Protected clinical items preserved: <span className="font-mono text-emerald-700">{anonResult.fidelity.preserved_items.map((x) => x.value).join(", ") || "None in snippet"}</span>.
                         </div>
+                        {anonResult.entities.some((e) => e.confidence < 0.85) && (
+                          <div className="text-amber-700">Note: Some detected spans had moderate confidence (&lt;85%); manual review recommended for unprefixed text.</div>
+                        )}
                       </div>
-                    </div>
+                    </>
                   )}
                 </div>
               </div>
@@ -878,6 +935,94 @@ export default function App() {
             </div>
           )}
 
+          {/* METADATA SECURITY */}
+          {tab === "metadata" && (
+            <div className="space-y-5">
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-900">Metadata Security &amp; Quarantine Inspector</div>
+                    <div className="text-xs text-slate-600">
+                      Tests keyed HMAC-SHA256 sanitization of filenames, directory paths, CSV headers, and nested JSON keys.
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleInspectMetadata}
+                    disabled={metaBusy}
+                    className="px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold"
+                  >
+                    {metaBusy ? "Inspecting..." : "Inspect Metadata"}
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                  <label className="space-y-1">
+                    <span className="text-slate-600 font-medium block">Input Filename</span>
+                    <input
+                      value={metaFilename}
+                      onChange={(e) => setMetaFilename(e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-slate-800"
+                    />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-slate-600 font-medium block">Directory Path</span>
+                    <input
+                      value={metaDir}
+                      onChange={(e) => setMetaDir(e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-slate-800"
+                    />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-slate-600 font-medium block">CSV Headers (comma-separated)</span>
+                    <input
+                      value={metaHeaders}
+                      onChange={(e) => setMetaHeaders(e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-slate-800"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {metaResult && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs space-y-3 text-xs">
+                    <div className="font-semibold text-sm text-slate-900">Sanitized Metadata Tokens ({metaResult.latency_ms} ms)</div>
+                    <div className="space-y-2 font-mono">
+                      <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+                        <span className="text-slate-500">Filename:</span> {metaResult.sanitized_filename}
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+                        <span className="text-slate-500">Directory:</span> {metaResult.sanitized_directory}
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+                        <span className="text-slate-500">Traversal Blocked:</span> {String(metaResult.traversal_blocked)}
+                      </div>
+                    </div>
+                    <div className="font-semibold text-slate-800 pt-1">CSV Header Sanitization</div>
+                    <div className="space-y-1 font-mono">
+                      {metaResult.headers.map((h, i) => (
+                        <div key={i} className="flex justify-between p-2 rounded bg-slate-50 border border-slate-200">
+                          <span className="text-rose-700">{h.original}</span>
+                          <span className="text-emerald-700">{h.sanitized}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs space-y-3 text-xs">
+                    <div className="font-semibold text-sm text-slate-900">Nested JSON Key Protection &amp; Quarantine Rules</div>
+                    <pre className="p-3 rounded-lg bg-slate-50 border border-slate-200 font-mono text-[11px] text-slate-800 overflow-x-auto">
+                      {JSON.stringify(metaResult.sanitized_json_preview, null, 2)}
+                    </pre>
+                    <ul className="list-disc pl-4 space-y-1 text-slate-600">
+                      {metaResult.quarantine_rules.map((r, i) => (
+                        <li key={i}>{r}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* PRIVACY DEFENSE LAB */}
           {tab === "defense" && (
             <div className="space-y-5">
@@ -890,17 +1035,31 @@ export default function App() {
                     Measures attacker re-identification success before and after MediShield sanitization. Strictly defensive aggregate metrics only — no patient identity lookup is exposed.
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <label className="text-xs text-slate-600 flex items-center gap-2">
-                    Synthetic Patients:
-                    <input
-                      type="number"
-                      min={12}
-                      max={100}
+                    Cohort:
+                    <select
                       value={defensePatients}
-                      onChange={(e) => setDefensePatients(Number(e.target.value) || 36)}
-                      className="w-16 rounded-lg border border-slate-300 px-2 py-1 text-xs font-mono text-slate-800"
-                    />
+                      onChange={(e) => setDefensePatients(Number(e.target.value))}
+                      className="rounded-lg border border-slate-300 px-2 py-1 text-xs font-mono text-slate-800 bg-white"
+                    >
+                      <option value={100}>100 patients</option>
+                      <option value={500}>500 patients</option>
+                      <option value={1000}>1,000 patients</option>
+                      <option value={5000}>5,000 patients</option>
+                    </select>
+                  </label>
+                  <label className="text-xs text-slate-600 flex items-center gap-2">
+                    Age Band:
+                    <select
+                      value={defenseBand}
+                      onChange={(e) => setDefenseBand(Number(e.target.value))}
+                      className="rounded-lg border border-slate-300 px-2 py-1 text-xs font-mono text-slate-800 bg-white"
+                    >
+                      <option value={5}>5 years</option>
+                      <option value={10}>10 years</option>
+                      <option value={20}>20 years</option>
+                    </select>
                   </label>
                   <button
                     onClick={handleRunDefenseLab}
