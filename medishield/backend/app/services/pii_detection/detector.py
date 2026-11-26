@@ -107,9 +107,17 @@ DOCTOR_PREFIX_RE = re.compile(r"\b(?:Dr\.?|Doctor|डॉ\.?)\s+", re.IGNORECASE)
 REGEX_RULES: List[Tuple[str, re.Pattern, float]] = [
     ("EMAIL", re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"), 0.99),
     ("PAN", re.compile(r"\b[A-Z]{5}[0-9]{4}[A-Z]\b"), 0.98),
+    ("AADHAAR_MASKED", re.compile(r"\b[Xx*]{4}[\s\-]?[Xx*]{4}[\s\-]?\d{4}\b"), 0.96),
     ("AADHAAR", re.compile(r"\b[2-9][0-9]{3}[\s\-]?[0-9]{4}[\s\-]?[0-9]{4}\b"), 0.95),
     ("ABHA_ID", re.compile(r"\b\d{2}[\-\s]?\d{4}[\-\s]?\d{4}[\-\s]?\d{4}\b"), 0.93),
-    ("HOSPITAL_ID", re.compile(r"\b(?:MRN|UHID|REG|PAT|OPD|IPD)[\-_:/]?\d{4,10}\b", re.IGNORECASE), 0.96),
+    (
+        "HOSPITAL_ID",
+        re.compile(
+            r"\b(?:[A-Z]{2,5}(?:20\d{2})?[-/]\d{2,4}[-/]\d{4,8}|[A-Z]{2,5}-(?:IPD|OPD|ADM|REG|PAT)-\d{3,8}|[A-Z]{2,5}\d{4}[-/]\d{4,8}|(?:MRN|UHID|REG|PAT|OPD|IPD|ADM|JJH|SNJ|DHH)[\-_:/]?\d{4,10})\b",
+            re.IGNORECASE,
+        ),
+        0.96,
+    ),
     (
         "PHONE",
         re.compile(
@@ -292,7 +300,7 @@ class MultilingualPIIDetector:
     ) -> None:
         # Pattern A: Explicit patient/attendant prefix (English, Hindi, Hinglish, case-insensitive)
         pat_name_re = re.compile(
-            r"\b(?:Patient|Pateint|Patinet|Pt\.?|Name|Naam|Mareez|Marez|Mariz|Rogi|Bimar|Attendant|Guardian|Emergency\s+Contact|OPD\s+Note|IPD\s+Note|Mr\.?|Mrs\.?|Ms\.?|Shri|Smt\.?|नाम|रोगी|मरीज़|मरीज)\s*[:\-]?\s*([A-Za-z\u0900-\u097F][a-zA-Z\u0900-\u097F\.]{1,25}(?:\s+[A-Za-z\u0900-\u097F][a-zA-Z\u0900-\u097F\.]{1,25}){0,2})",
+            r"\b(?:Patient|Pateint|Patinet|Pt\.?|Name|Naam|Mareez|Marez|Mariz|Rogi|Bimar|Attendant|Guardian|Emergency\s+Contact|Discharge\s+Summary|OPD\s+Note|IPD\s+Note|Lab\s+Report|Prescription|Mr\.?|Mrs\.?|Ms\.?|Shri|Smt\.?|नाम|रोगी|मरीज़|मरीज)\s*[:\-]?\s*([A-Za-z\u0900-\u097F][a-zA-Z\u0900-\u097F\.]{1,25}(?:\s+[A-Za-z\u0900-\u097F][a-zA-Z\u0900-\u097F\.]{1,25}){0,2})",
             re.IGNORECASE,
         )
         for m in pat_name_re.finditer(text):

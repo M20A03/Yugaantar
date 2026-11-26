@@ -74,10 +74,44 @@ def sanitize_structured_payload(
     def _clean(node: Any, parent_key: str = "") -> Any:
         nonlocal total_applied
         if isinstance(node, str):
+            val = node.strip()
             pk_low = parent_key.lower()
-            if any(tok in pk_low for tok in ("patient_name", "mariz", "mareez", "rogi", "attendant", "guardian", "full_name")) and node.strip():
-                total_applied += 1
-                return anonymizer.pseudonym_for("PERSON", node)
+            if val:
+                if any(tok in pk_low for tok in ("patient_name", "mariz", "mareez", "rogi", "attendant", "guardian", "full_name", "relative_name")):
+                    total_applied += 1
+                    return anonymizer.pseudonym_for("PERSON", val)
+                if pk_low in {"first", "last", "local", "family", "given"}:
+                    total_applied += 1
+                    return anonymizer.pseudonym_for("PERSON", val)
+                if any(tok in pk_low for tok in ("uhid", "mrn", "insurance_id", "patient_id", "reg_no")):
+                    total_applied += 1
+                    return "[ID_REDACTED]"
+                if any(tok in pk_low for tok in ("mobile", "phone", "telecom")):
+                    total_applied += 1
+                    return "[PHONE_REDACTED]"
+                if "email" in pk_low:
+                    total_applied += 1
+                    return "[EMAIL_REDACTED]"
+                if any(tok in pk_low for tok in ("aadhaar", "aadhar", "abha", "pan")):
+                    total_applied += 1
+                    return "[ID_REDACTED]"
+                if any(tok in pk_low for tok in ("dob", "birthdate", "janm")):
+                    total_applied += 1
+                    return "[DOB_REDACTED]"
+                if any(tok in pk_low for tok in ("street", "village", "locality", "landmark", "house", "city", "district", "tehsil", "pin", "zip", "pata", "address")):
+                    total_applied += 1
+                    return "[LOCATION_REDACTED]"
+                # Base64-encoded PII check
+                if len(val) >= 16 and len(val) % 4 == 0 and all(c.isalnum() or c in "+/=" for c in val):
+                    try:
+                        import base64 as _b64
+                        dec = _b64.b64decode(val, validate=True).decode("utf-8", errors="strict")
+                        _, b_ents = detector.scan(dec)
+                        if b_ents:
+                            total_applied += len(b_ents)
+                            return "[BASE64_PII_REDACTED]"
+                    except Exception:
+                        pass
             _, ents = detector.scan(node)
             if ents:
                 collected_entities.extend(ents)

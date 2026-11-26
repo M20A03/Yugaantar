@@ -1,0 +1,5 @@
+# MediShield privacy policy configuration
+age_band_years: 10
+date_shift_max_days: 180
+min_group_size: 5
+release_scope: "medishield-track3"

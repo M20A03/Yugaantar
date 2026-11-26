@@ -9,6 +9,7 @@ import csv
 import hashlib
 import json
 import os
+import resource
 import sys
 import time
 from pathlib import Path
@@ -115,7 +116,13 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
             continue
 
         try:
-            raw_text = src_path.read_text(encoding="utf-8", errors="strict")
+            raw_bytes = src_path.read_bytes()
+            if raw_bytes.startswith((b"\xff\xfe", b"\xfe\xff")) and len(raw_bytes) >= 8:
+                raw_text = raw_bytes.decode("utf-16", errors="strict")
+            elif raw_bytes.startswith(b"\xef\xbb\xbf"):
+                raw_text = raw_bytes[3:].decode("utf-8", errors="strict")
+            else:
+                raw_text = raw_bytes.decode("utf-8", errors="strict")
         except UnicodeDecodeError:
             counts["files_quarantined"] += 1
             counts["records_quarantined"] += 1
@@ -204,15 +211,49 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
                 counts["records_processed"] += 1
                 san_row = {}
                 patient_psn = None
+                # Combine FirstName + LastName if present for consistent patient pseudonym
+                fn_cell = (row.get("FirstName") or row.get("first_name") or "").strip()
+                ln_cell = (row.get("LastName") or row.get("last_name") or "").strip()
+                combined_name = f"{fn_cell} {ln_cell}".strip()
+                if combined_name:
+                    patient_psn = anonymizer.pseudonym_for("PERSON", combined_name).strip("[]")
+
                 for k, v in row.items():
                     val = v or ""
-                    _, ents = detector.scan(val)
-                    counts["identifiers_detected"] += len(ents)
-                    san_val, _ = anonymizer.anonymize(val, ents, policy)
-                    for e in ents:
-                        if e.entity_type == "PERSON" and patient_psn is None:
-                            patient_psn = anonymizer.pseudonym_for("PERSON", e.text).strip("[]")
-                    san_row[header_map[k]] = san_val
+                    kl = (k or "").strip().lower()
+                    if not val.strip():
+                        san_row[header_map[k]] = val
+                        continue
+                    if any(t in kl for t in ("patientid", "uhid", "mrn", "reg no", "reg_no", "insurance")):
+                        counts["identifiers_detected"] += 1
+                        san_row[header_map[k]] = "[ID_REDACTED]"
+                    elif any(t in kl for t in ("firstname", "lastname", "patient name", "patient_name", "naam", "guardian", "relative name", "pita", "pati")):
+                        counts["identifiers_detected"] += 1
+                        san_row[header_map[k]] = anonymizer.pseudonym_for("PERSON", val)
+                        if patient_psn is None and "guardian" not in kl and "relative" not in kl and "pita" not in kl:
+                            patient_psn = anonymizer.pseudonym_for("PERSON", val).strip("[]")
+                    elif any(t in kl for t in ("dob", "janm", "birth")):
+                        counts["identifiers_detected"] += 1
+                        san_row[header_map[k]] = "[DOB_REDACTED]"
+                    elif any(t in kl for t in ("age", "umar")) and val.strip().isdigit():
+                        age_v = int(val.strip())
+                        lo = (age_v // policy.age_band_size) * policy.age_band_size
+                        san_row[header_map[k]] = f"{lo}-{lo + policy.age_band_size - 1}"
+                        counts["records_generalized"] += 1
+                    elif any(t in kl for t in ("street", "city", "district", "zip", "address", "pata", "gaon", "tehsil", "jila", "pin", "village", "mohalla", "locality", "landmark", "house")):
+                        counts["identifiers_detected"] += 1
+                        san_row[header_map[k]] = "[LOCATION_REDACTED]"
+                    elif any(t in kl for t in ("phone", "mobile", "email", "aadhaar", "aadhar", "abha", "pan")):
+                        counts["identifiers_detected"] += 1
+                        san_row[header_map[k]] = "[REDACTED]"
+                    else:
+                        _, ents = detector.scan(val)
+                        counts["identifiers_detected"] += len(ents)
+                        san_val, _ = anonymizer.anonymize(val, ents, policy)
+                        for e in ents:
+                            if e.entity_type == "PERSON" and patient_psn is None:
+                                patient_psn = anonymizer.pseudonym_for("PERSON", e.text).strip("[]")
+                        san_row[header_map[k]] = san_val
                 writer.writerow(san_row)
                 file_records_jsonl.append(
                     json.dumps({"file": rel_out, "loc": f"row:{row_idx}", "patient": patient_psn})
@@ -307,7 +348,7 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
                 {
                     "input_sha256": file_hash,
                     "output": None,
-                    "status": "quarantined_clinical_loss",
+                    "status": "quarantined",
                     "reason": "clinical integrity verification failed",
                     "clinical_preservation": fid_res["preservation_score"],
                 }
@@ -328,6 +369,9 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
         "files": report_files,
         "counts": counts,
         "timing": {"seconds": round(time.perf_counter() - t0, 3)},
+        "resources": {
+            "peak_rss_mb": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024, 2)
+        },
     }
     (output_dir / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     (output_dir / "records.jsonl").write_text("\n".join(records_jsonl_lines) + ("\n" if records_jsonl_lines else ""), encoding="utf-8")
