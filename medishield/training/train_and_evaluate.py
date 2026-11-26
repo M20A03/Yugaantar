@@ -204,20 +204,29 @@ def train_and_evaluate() -> Dict[str, Any]:
         compress=3,
     )
 
-    # --- PHASE 6: Learning Curves (1k, 10k, 25k, 50k total dataset scale) ---
-    perm = np.random.RandomState(42).permutation(len(X_l_tr))
-    X_l_tr_shuf, y_l_tr_shuf = X_l_tr[perm], y_l_tr[perm]
+    # --- PHASE 6: Stratified, Patient-Disjoint Learning Curve on VALIDATION set ---
+    import random as _rnd
+    _rng = _rnd.Random(42)
+    _pos_g = sorted({p["group_id"] for p in l_train if p["label"] == 1})
+    _neg_g = sorted({p["group_id"] for p in l_train if p["label"] == 0})
+    _rng.shuffle(_pos_g)
+    _rng.shuffle(_neg_g)
+
     learning_curve = []
     for n_samples in (1000, 10000, 25000, len(l_train)):
-        idx = min(n_samples, len(X_l_tr_shuf))
+        half_g = max(1, n_samples // 2)
+        chosen_g = set(_pos_g[:half_g]) | set(_neg_g[:half_g])
+        sub = [p for p in l_train if p["group_id"] in chosen_g]
+        X_sub = np.array([_extract_linkage_features(p) for p in sub], dtype=np.float32)
+        y_sub = np.array([p["label"] for p in sub], dtype=np.int32)
         sub_clf = HistGradientBoostingClassifier(max_iter=80, max_depth=6, random_state=42)
-        sub_clf.fit(X_l_tr_shuf[:idx], y_l_tr_shuf[:idx])
-        sub_pred = (sub_clf.predict_proba(X_l_te)[:, 1] >= best_thresh).astype(int)
+        sub_clf.fit(X_sub, y_sub)
+        sub_pred = (sub_clf.predict_proba(X_l_va)[:, 1] >= best_thresh).astype(int)
         learning_curve.append({
-            "train_samples": idx,
-            "test_precision": round(float(precision_score(y_l_te, sub_pred)), 4),
-            "test_recall": round(float(recall_score(y_l_te, sub_pred)), 4),
-            "test_f1": round(float(f1_score(y_l_te, sub_pred)), 4),
+            "train_samples": len(sub),
+            "val_precision": round(float(precision_score(y_l_va, sub_pred)), 4),
+            "val_recall": round(float(recall_score(y_l_va, sub_pred)), 4),
+            "val_f1": round(float(f1_score(y_l_va, sub_pred)), 4),
         })
 
     _, peak_mem = tracemalloc.get_traced_memory()

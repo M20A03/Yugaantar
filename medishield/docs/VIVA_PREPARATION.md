@@ -214,3 +214,15 @@
    - *What it does:* Derives a release-specific subkey from `RAKSHA_SECRET` + `release_scope` so pseudonyms cannot be linked across two unrelated hospital data releases, and checks for hash collisions. *(Note: HMAC is pseudonymization, NOT a Zero-Knowledge Proof.)*
 5. **Character N-Gram TF-IDF (`detector.py`):**
    - *What it does:* Uses `char_wb` (2–4 character chunks) instead of only whole words so typos like `Pateint` or transliteration spellings are still scored accurately.
+
+---
+
+## 11. Learning Curve Audit Findings (Simple English)
+
+- **Why did `1,000` and `10,000` give `0.0` F1 earlier?**  
+  Our generator created all `15,000` positive `match` pairs first, followed by negative pairs. Even though `group_split()` shuffled group IDs, it appended rows in original order—so the first `10,000` training rows had **100% `1`s and 0% `0`s**. A model cannot learn to separate two classes if it only sees one class.
+- **Why did the test confusion matrix show `[[3712, 0], [0, 3788]]` (100%)?**  
+  In the 50k dataset, negative pairs always had large age gaps (`>= 20` years) or different phones, making them linearly separable. Also, `100%` of test names (`FIRST_EN` × `LAST_EN`) overlapped with training names.
+- **What happened on the fresh 2,000-pair hard challenge set (`audit_linkage.py`)?**  
+  Using completely unseen names (`Harish Shukla`, `Rekha Pathak`, etc.), 1-digit phone typos, missing phones, and hard negatives with the **same name, same age (0–2 yrs), and same city**, the preserved `linkage_model.joblib` achieved **Precision `0.9960`**, **Recall `0.9840`**, **F1 `0.9899`**, Confusion Matrix **`[[996, 4], [16, 984]]`** (4 false positives, 16 false negatives like `Rekha Pathak` vs `Rek. Pathak` with `phone: null` scoring `0.648` just below `0.65`).
+- **Rule for ML Evaluation:** Always build learning curves on the **validation set** using **stratified, patient-disjoint** subsets, keeping the final test set untouched until the end.
