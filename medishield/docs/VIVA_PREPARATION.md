@@ -321,3 +321,28 @@ Our `MedicalFidelityEngine` (`fidelity.py`) checks that exact clinical facts sur
 - **Lab values & units:** `HbA1c 7.8%`, `Creatinine 1.2 mg/dL`
 - **Vitals:** `BP 130/85 mmHg`
 - **Hospital stay lengths:** `4 days`, `9 days`
+
+
+---
+
+## 15. Final Submission Audit & Truthful Benchmark Limitations (Viva Ready)
+
+### Q1: What is the difference between our synthetic evaluation and official hackathon results?
+- All our benchmarks (the 4-system cohort, the 5,000-patient sealed test, the 5,000 clinical stress tests, and the 210 handwritten records) use **synthetic** hospital records and **synthetic** voter lists.
+- The official organizer validator (`validate_output.py`) and official test dataset are **not** in our workspace yet, so we never claim official test results — we clearly label our numbers as synthetic independent evaluations.
+
+### Q2: What genuine failure cases did our 210-record handwritten audit find?
+We intentionally tested 210 handwritten records *without* tuning on them, and found **3 honest limitations**:
+1. **Unprefixed lowercase names** (`"follow up for rahul verma..."`): **0% name recall**, because without a title/prefix (`Patient`, `Mariz`, `Mr.`) or capital letters, rule + char-TFIDF NER cannot distinguish a lowercase name from normal words.
+2. **Nested JSON string values without key context** (`{"primary": "Rohan Mehta"}`): when scanned as a raw JSON string, `"primary"` is not in `PATIENT_PREFIX_RE`, so the name is missed (though phones are caught).
+3. **Unfamiliar lowercase Hinglish cues** (`"bimar suresh kumar"`, `"naam: kavita patel"`): **0% name recall** on lowercase names with unseen cues.
+- Meanwhile, **standard multilingual** (`100%`), **ambiguous medical values** (`100%` PII stripped, `100%` doctor & clinical preserved), and **clinical preservation across all 210 records** (`100%`) passed completely.
+
+### Q3: Why is "distinct-patient k-anonymity" different from "record-level k-anonymity"?
+- If 1 patient visits 3 hospitals, they create **3 records** with the same `(age_band, gender)`.
+- Counting records says `min_k = 2` (`avg_k = 7.91`), which looks safe — but counting **distinct patients** (`34` distinct patients across `87` records) reveals `distinct_patient_min_k = 1` (`avg_k = 3.09`).
+- Knowing this distinction shows real privacy engineering maturity in a viva!
+
+### Q4: How are secret keys and release scopes managed?
+- `AnonymizerEngine` reads `RAKSHA_SECRET` from the environment, or generates a fresh 256-bit ephemeral key (`secrets.token_hex(32)`) if unset.
+- Keys are domain-separated by `release_scope` using HMAC-SHA256 (`opaque_metadata_id`), so metadata IDs (`dir_`, `redacted_`, `field_`, `key_`) cannot be reversed by dictionary lookup or correlated across different releases.
