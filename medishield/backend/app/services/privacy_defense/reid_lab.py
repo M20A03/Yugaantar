@@ -139,6 +139,7 @@ def generate_four_system_cohort(
 
             hospital_records.append(
                 {
+                    "patient_id": idx,
                     "system": sys_name,
                     "language": lang,
                     "raw_text": text,
@@ -202,6 +203,8 @@ def run_reidentification_defense_lab(
 
     before_qis: List[Tuple[int, str, str]] = []
     after_qis: List[Tuple[str, str]] = []
+    distinct_patient_qis: Dict[int, Tuple[str, str]] = {}
+    forced_top_correct = 0.0
     sys_stats: Dict[str, Dict[str, int]] = {
         s: {"records": 0, "before_reid": 0, "after_reid": 0, "direct_leaks": 0}
         for s in HOSPITAL_SYSTEMS
@@ -250,17 +253,22 @@ def run_reidentification_defense_lab(
         # After k-anonymity generalization (age bucket + gender, city generalized to region)
         bucket_qi = (_age_bucket(rec["age"]), rec["gender"])
         after_qis.append(bucket_qi)
+        distinct_patient_qis[rec["patient_id"]] = bucket_qi
 
-        # Attacker succeeds after sanitization ONLY if direct PII leaked OR generalized QI is unique in voter list
+        cand_size = 1 if leaked else max(1, voter_bucket_counts[bucket_qi])
+        forced_top_correct += 1.0 / cand_size
+
+        # Unique confident re-identification
         if leaked or voter_bucket_counts[bucket_qi] == 1:
             after_reid_hits += 1
             sys_stats[sys_name]["after_reid"] += 1
 
-    # Equivalence class sizes before and after
+    # Equivalence class sizes: distinct patients vs. record-level
     before_groups = Counter(before_qis)
     after_groups = Counter(after_qis)
+    distinct_groups = Counter(distinct_patient_qis.values())
     before_unique = sum(1 for q in before_qis if before_groups[q] == 1)
-    after_unique = sum(1 for q in after_qis if after_groups[q] == 1)
+    after_unique = sum(1 for q in distinct_patient_qis.values() if distinct_groups[q] == 1)
 
     quasi_records = [
         QuasiRecord(
@@ -277,21 +285,28 @@ def run_reidentification_defense_lab(
 
     before_rate = round(before_reid_hits / total, 4) if total else 0.0
     after_rate = round(after_reid_hits / total, 4) if total else 0.0
+    forced_top_acc = round(forced_top_correct / total, 4) if total else 0.0
     reduction_pct = round(((before_rate - after_rate) / before_rate) * 100.0, 2) if before_rate > 0 else 0.0
     dt_ms = round((time.perf_counter() - t0) * 1000.0, 2)
 
     return {
         "total_records": total,
         "synthetic_patients": n_patients,
+        "distinct_patients": len(distinct_patient_qis),
         "synthetic_voters": len(voter_list),
         "hospital_systems": HOSPITAL_SYSTEMS,
         "before_reidentification_rate": before_rate,
         "after_reidentification_rate": after_rate,
+        "unique_confident_reid_rate": after_rate,
+        "forced_top_match_accuracy": forced_top_acc,
+        "attacker_coverage": 1.0 if total else 0.0,
         "risk_reduction_pct": reduction_pct,
         "before_unique_rate": round(before_unique / total, 4) if total else 0.0,
-        "after_unique_rate": round(after_unique / total, 4) if total else 0.0,
-        "min_anonymity_group_size": min(after_groups.values()) if after_groups else 0,
-        "avg_anonymity_group_size": round(sum(after_groups.values()) / len(after_groups), 2) if after_groups else 0.0,
+        "after_unique_rate": round(after_unique / len(distinct_patient_qis), 4) if distinct_patient_qis else 0.0,
+        "min_anonymity_group_size": min(distinct_groups.values()) if distinct_groups else 0,
+        "avg_anonymity_group_size": round(sum(distinct_groups.values()) / len(distinct_groups), 2) if distinct_groups else 0.0,
+        "record_level_min_k": min(after_groups.values()) if after_groups else 0,
+        "record_level_avg_k": round(sum(after_groups.values()) / len(after_groups), 2) if after_groups else 0.0,
         "direct_pii_leakage_rate": round(direct_pii_leaks / total, 4) if total else 0.0,
         "residual_qi_exposure_rate": round(r_after["reidentification_risk_score"], 4),
         "clinical_preservation_score": round(sum(fidelity_scores) / len(fidelity_scores), 4) if fidelity_scores else 1.0,
@@ -299,5 +314,10 @@ def run_reidentification_defense_lab(
         "risk_after": r_after,
         "system_breakdown": sys_stats,
         "latency_ms": dt_ms,
+        "remaining_limitations": [
+            "0% direct PII leakage and 100% clinical preservation apply only to evaluated synthetic benchmarks, not a guarantee on unseen real-world data.",
+            "Residual quasi-identifiers (age band, gender) allow forced top-match guessing at rate ~1/k.",
+            "Unprefixed lowercase names without context cues remain a known detection gap.",
+        ],
         "disclaimer": "Strictly defensive aggregate simulation on synthetic data; no identity lookup is exposed.",
     }

@@ -78,15 +78,21 @@ export interface EvaluationResponse {
 export interface PrivacyDefenseResponse {
   total_records: number;
   synthetic_patients: number;
+  distinct_patients?: number;
   synthetic_voters: number;
   hospital_systems: string[];
   before_reidentification_rate: number;
   after_reidentification_rate: number;
+  unique_confident_reid_rate?: number;
+  forced_top_match_accuracy?: number;
+  attacker_coverage?: number;
   risk_reduction_pct: number;
   before_unique_rate: number;
   after_unique_rate: number;
   min_anonymity_group_size: number;
   avg_anonymity_group_size: number;
+  record_level_min_k?: number;
+  record_level_avg_k?: number;
   direct_pii_leakage_rate: number;
   residual_qi_exposure_rate: number;
   clinical_preservation_score: number;
@@ -95,6 +101,7 @@ export interface PrivacyDefenseResponse {
     { records: number; before_reid: number; after_reid: number; direct_leaks: number }
   >;
   latency_ms: number;
+  remaining_limitations?: string[];
   disclaimer: string;
 }
 

@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "backend"))
 
 from app.models.schemas import PolicyConfig  # noqa: E402
 from app.services.anonymization.anonymizer import AnonymizerEngine  # noqa: E402
+from app.services.medical_fidelity.fidelity import MedicalFidelityEngine  # noqa: E402
 from app.services.pii_detection.detector import MultilingualPIIDetector  # noqa: E402
 
 
@@ -39,6 +40,7 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
 
     detector = MultilingualPIIDetector()
     anonymizer = AnonymizerEngine()
+    fidelity = MedicalFidelityEngine()
     policy = PolicyConfig()
 
     report_files: List[Dict[str, Any]] = []
@@ -47,6 +49,7 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
         "files_total": 0,
         "files_sanitized": 0,
         "files_quarantined": 0,
+        "clinical_integrity_flagged": 0,
         "records_processed": 0,
         "identifiers_detected": 0,
         "records_linked": 0,
@@ -249,8 +252,14 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
             dst_path.parent.mkdir(parents=True, exist_ok=True)
             dst_path.write_text("\n".join(san_lines) + ("\n" if san_lines else ""), encoding="utf-8")
 
+        san_out_text = dst_path.read_text(encoding="utf-8")
+        fid_res = fidelity.evaluate(raw_text, san_out_text)
+        file_status = "sanitized"
+        if fid_res["preservation_score"] < 1.0:
+            counts["clinical_integrity_flagged"] += 1
+            file_status = "flagged_clinical_loss"
         counts["files_sanitized"] += 1
-        report_files.append({"input_sha256": file_hash, "output": rel_out, "status": "sanitized"})
+        report_files.append({"input_sha256": file_hash, "output": rel_out, "status": file_status, "clinical_preservation": fid_res["preservation_score"]})
 
     report = {
         "files": report_files,

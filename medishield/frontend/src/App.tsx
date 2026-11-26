@@ -917,12 +917,12 @@ export default function App() {
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     {[
                       { k: "Re-ID Before Sanitization", v: `${(defenseResult.before_reidentification_rate * 100).toFixed(1)}%`, tone: "text-rose-700" },
-                      { k: "Re-ID After Sanitization", v: `${(defenseResult.after_reidentification_rate * 100).toFixed(1)}%`, tone: "text-emerald-700" },
-                      { k: "Risk Reduction", v: `${defenseResult.risk_reduction_pct.toFixed(1)}%`, tone: "text-teal-700" },
-                      { k: "Clinical Preservation", v: `${(defenseResult.clinical_preservation_score * 100).toFixed(1)}%`, tone: "text-emerald-700" },
-                      { k: "Direct PII Leakage", v: `${(defenseResult.direct_pii_leakage_rate * 100).toFixed(2)}%`, tone: "text-emerald-700" },
-                      { k: "Unique Record Rate (After)", v: `${(defenseResult.after_unique_rate * 100).toFixed(1)}%`, tone: "text-slate-800" },
-                      { k: "Min / Avg k-Group Size", v: `${defenseResult.min_anonymity_group_size} / ${defenseResult.avg_anonymity_group_size}`, tone: "text-slate-800" },
+                      { k: "Unique Confident Re-ID (After)", v: `${((defenseResult.unique_confident_reid_rate ?? defenseResult.after_reidentification_rate) * 100).toFixed(1)}%`, tone: "text-emerald-700" },
+                      { k: "Forced Top-Match Accuracy", v: `${((defenseResult.forced_top_match_accuracy ?? 0) * 100).toFixed(2)}%`, tone: "text-amber-700" },
+                      { k: "Attacker Prediction Coverage", v: `${((defenseResult.attacker_coverage ?? 1) * 100).toFixed(0)}%`, tone: "text-slate-800" },
+                      { k: "Direct PII Leakage (Synthetic)", v: `${(defenseResult.direct_pii_leakage_rate * 100).toFixed(2)}%`, tone: "text-emerald-700" },
+                      { k: "Clinical Preservation (Synthetic)", v: `${(defenseResult.clinical_preservation_score * 100).toFixed(1)}%`, tone: "text-emerald-700" },
+                      { k: "Distinct-Patient Min / Avg k", v: `${defenseResult.min_anonymity_group_size} / ${defenseResult.avg_anonymity_group_size}`, tone: "text-slate-800" },
                       { k: "CPU Latency", v: `${defenseResult.latency_ms} ms`, tone: "text-slate-800" },
                     ].map((m) => (
                       <div key={m.k} className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
@@ -931,6 +931,17 @@ export default function App() {
                       </div>
                     ))}
                   </div>
+
+                  {defenseResult.remaining_limitations && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900 space-y-1">
+                      <div className="font-semibold">Scope &amp; Remaining Privacy Limitations</div>
+                      <ul className="list-disc pl-4 space-y-0.5">
+                        {defenseResult.remaining_limitations.map((lim, i) => (
+                          <li key={i}>{lim}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
                   <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-xs">
                     <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
