@@ -56,34 +56,34 @@
   "learning_curve": [
     {
       "train_samples": 1000,
-      "test_precision": 0.0,
-      "test_recall": 0.0,
-      "test_f1": 0.0
+      "val_precision": 1.0,
+      "val_recall": 1.0,
+      "val_f1": 1.0
     },
     {
       "train_samples": 10000,
-      "test_precision": 0.0,
-      "test_recall": 0.0,
-      "test_f1": 0.0
+      "val_precision": 1.0,
+      "val_recall": 1.0,
+      "val_f1": 1.0
     },
     {
       "train_samples": 25000,
-      "test_precision": 1.0,
-      "test_recall": 1.0,
-      "test_f1": 1.0
+      "val_precision": 1.0,
+      "val_recall": 1.0,
+      "val_f1": 1.0
     },
     {
-      "train_samples": 35000,
-      "test_precision": 1.0,
-      "test_recall": 1.0,
-      "test_f1": 1.0
+      "train_samples": 34881,
+      "val_precision": 1.0,
+      "val_recall": 1.0,
+      "val_f1": 1.0
     }
   ],
   "performance": {
-    "avg_detector_latency_ms": 1.581,
-    "worst_detector_latency_ms": 26.255,
-    "peak_traced_memory_mb": 1088.17,
-    "total_training_seconds": 140.0,
+    "avg_detector_latency_ms": 4.472,
+    "worst_detector_latency_ms": 48.7,
+    "peak_traced_memory_mb": 1088.0,
+    "total_training_seconds": 354.71,
     "pii_model_size_kb": 402.6,
     "linkage_model_size_kb": 0.7
   }
