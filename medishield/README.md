@@ -53,9 +53,5 @@ Verified compatible with `scikit-learn==1.6.1` and `numpy==2.2.1`:
 ---
 
 ## Documentation
-- [Final Release Report](docs/FINAL_RELEASE_REPORT.md)
-- [Final Independent Privacy Audit](docs/FINAL_INDEPENDENT_PRIVACY_AUDIT.md)
-- [Hackathon Compliance Matrix](docs/HACKATHON_COMPLIANCE_MATRIX.md)
-- [Architecture, Brief & Demo Guide](docs/ARCHITECTURE_AND_BRIEF.md)
-- [Submission Checklist](docs/FINAL_SUBMISSION_CHECKLIST.md)
-- [Viva Preparation Guide](docs/VIVA_PREPARATION.md)
+- [Complete Documentation (docs/README.md)](docs/README.md)
+- [Two-Page Project Brief PDF (docs/MediShield_Project_Brief.pdf)](docs/MediShield_Project_Brief.pdf)
