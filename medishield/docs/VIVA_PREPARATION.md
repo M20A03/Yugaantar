@@ -226,3 +226,19 @@
 - **What happened on the fresh 2,000-pair hard challenge set (`audit_linkage.py`)?**  
   Using completely unseen names (`Harish Shukla`, `Rekha Pathak`, etc.), 1-digit phone typos, missing phones, and hard negatives with the **same name, same age (0–2 yrs), and same city**, the preserved `linkage_model.joblib` achieved **Precision `0.9960`**, **Recall `0.9840`**, **F1 `0.9899`**, Confusion Matrix **`[[996, 4], [16, 984]]`** (4 false positives, 16 false negatives like `Rekha Pathak` vs `Rek. Pathak` with `phone: null` scoring `0.648` just below `0.65`).
 - **Rule for ML Evaluation:** Always build learning curves on the **validation set** using **stratified, patient-disjoint** subsets, keeping the final test set untouched until the end.
+
+---
+
+## 12. Final 5,000-Pair Independent Generalization Audit (Simple English)
+
+- **Why did the model hit `1.0` F1 with only `1,000` stratified training samples?**  
+  In our 50k synthetic training/validation dataset, every negative pair had either a large age gap (`>= 20` years) or a different phone number, which triggered our `contradictory` feature. That made the two classes cleanly separable by a straight line (`LogisticRegression`), so even `1,000` balanced pairs learned the boundary.
+- **What happened on 5,000 completely unseen, harder pairs (`final_generalization_audit.py`)?**  
+  With `0` overlapping names, `5,000` unique pairs, Hindi-to-English transliteration, spelling typos, missing phones, and hard negatives sharing the same name, age (0–2 yrs), and city:
+  - **Precision:** `0.9906` (`99.06%`)
+  - **Recall:** `0.8000` (`80.00%`)
+  - **F1 Score:** `0.8852` (`88.52%`)
+  - **Confusion Matrix:** `[[2481, 19], [500, 2000]]` (`19` False Positives, `500` False Negatives)
+  - **Inference Speed:** `0.95 ms` total for 5,000 pairs (`0.00019 ms` per pair)
+- **Why were there 500 False Negatives?**  
+  All 500 were `pos_2` pairs where one hospital was **missing the phone number** (`prob = 0.581`). Because `0.581` falls between `0.50` (`uncertain_review`) and `0.65` (`high_threshold`), MediShield **conservatively flagged them for human review** instead of risking a wrong auto-merge.
