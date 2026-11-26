@@ -47,6 +47,16 @@ class AnonymizerEngine:
         self._issued_pseudonyms[token] = f"{entity_type}:{norm_val}"
         return token
 
+    def opaque_metadata_id(self, kind: str, value: str) -> str:
+        """Generate a keyed, release-scoped opaque identifier for metadata (dirs/files/headers/keys)."""
+        subkey = self._derive_release_key()
+        digest = hmac.new(
+            subkey,
+            f"medishield:meta:v1:{self._release_scope}:{kind}:{value}".encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()[:10]
+        return f"{kind}_{digest}"
+
     def transform_entity(self, ent: DetectedEntity, mode: TransformMode, age_band_size: int) -> str:
         if mode == "suppression":
             return "[SUPPRESSED]"

@@ -219,7 +219,7 @@ class MultilingualPIIDetector:
             )
 
         addr_re = re.compile(
-            r"\b(?:residing at|resident of|address|pata|पता|निवासी)\s*[:\-]?\s*([A-Za-z0-9\u0900-\u097F,.\-\s]{4,70}?)(?=[.\n]|$|\b(?:Contact|Phone|Mob|Mobile|PIN|diagnosed|Patient|Pt|Unko)\b)",
+            r"\b(?:residing at|resident of|address|city|from|pata|पता|शहर|निवासी)\s*[:\-]?\s*([A-Za-z0-9\u0900-\u097F,.\-\s]{3,70}?)(?=[.\n,;]|$|\b(?:Contact|Phone|Tel|Mob|Mobile|PIN|diagnosed|admitted|Patient|Pt|Unko|Rx)\b)",
             re.IGNORECASE,
         )
         for m in addr_re.finditer(norm):
@@ -259,7 +259,7 @@ class MultilingualPIIDetector:
     ) -> None:
         # Pattern A: Explicit patient prefix (incl. common typos like Pateint & OPD/IPD Note)
         pat_name_re = re.compile(
-            r"\b(?:Patient|Pateint|Patinet|Pt\.?|Name|Mareez|Mariz|mariz|Rogi|OPD\s+Note|IPD\s+Note|Mr\.?|Mrs\.?|Ms\.?|Shri|Smt\.?|नाम|रोगी|मरीज़)\s*[:\-]?\s*([A-Z\u0900-\u097F][a-zA-Z\u0900-\u097F\.]{1,25}(?:\s+[A-Z\u0900-\u097F][a-zA-Z\u0900-\u097F\.]{1,25}){0,2})",
+            r"\b(?:Patient|Pateint|Patinet|Pt\.?|Name|Mareez|Marez|Mariz|mariz|Rogi|Attendant|Emergency\s+Contact|OPD\s+Note|IPD\s+Note|Mr\.?|Mrs\.?|Ms\.?|Shri|Smt\.?|नाम|रोगी|मरीज़|मरीज)\s*[:\-]?\s*([A-Z\u0900-\u097F][a-zA-Z\u0900-\u097F\.]{1,25}(?:\s+[A-Z\u0900-\u097F][a-zA-Z\u0900-\u097F\.]{1,25}){0,2})",
         )
         for m in pat_name_re.finditer(text):
             name_val = m.group(1).strip(" .,:-")
@@ -278,9 +278,9 @@ class MultilingualPIIDetector:
                     )
                 )
 
-        # Pattern A2: Unstructured clinical subject ("Ananya Kulkarni presented with / visited / complained")
+        # Pattern A2: Unstructured clinical subject ("Ananya Kulkarni presented with / was admitted / complained")
         unstruct_name_re = re.compile(
-            r"(?:^|[.\n]\s*)([A-Z][a-z]{1,20}\s+[A-Z][a-z]{1,20})\s+(?:presented|visited|admitted|complained|reported|tested)\b"
+            r"(?:^|[.\n]\s*)([A-Z][a-z]{1,20}\s+[A-Z][a-z]{1,20})\s+(?:(?:was|is)\s+)?(?:presented|visited|admitted|complained|reported|tested)\b"
         )
         for m in unstruct_name_re.finditer(text):
             name_val = m.group(1).strip()
@@ -297,7 +297,7 @@ class MultilingualPIIDetector:
                     )
                 )
 
-        # Pattern A3: Unprefixed name before age/gender ("Rahul Sharma, 45/M" or "Priya Nair (32F)")
+        # Pattern A3: Unprefixed name before age/gender ("Rahul Sharma, 45/M" or "Priya Nair (32F)" or "Aditya Rao (45/M)")
         demo_name_re = re.compile(
             r"(?:^|[.\n]\s*)([A-Z][a-z]{1,20}\s+[A-Z][a-z]{1,20})\s*[,\(]\s*\d{1,3}\s*(?:/|\s)?\s*[MFmf]\b"
         )

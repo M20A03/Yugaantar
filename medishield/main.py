@@ -104,20 +104,19 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
             )
             continue
 
-        # Metadata privacy: sanitize directory segments and filename if they contain PII
+        # Metadata privacy: sanitize directory segments and filename with keyed opaque IDs
         safe_parts: List[str] = []
         for part in rel.parent.parts:
             _, p_ents = detector.scan(part.replace("_", " ").replace("-", " "))
             if p_ents:
-                part_hash = hashlib.sha256(part.encode("utf-8")).hexdigest()[:8]
-                safe_parts.append(f"dir_{part_hash}")
+                safe_parts.append(anonymizer.opaque_metadata_id("dir", part))
             else:
                 safe_parts.append(part)
         safe_parent = Path(*safe_parts) if safe_parts else Path(".")
 
         _, fn_ents = detector.scan(rel.stem.replace("_", " ").replace("-", " "))
         if fn_ents:
-            safe_name = f"redacted_{file_hash[:8]}{ext}"
+            safe_name = f"{anonymizer.opaque_metadata_id('redacted', rel.name)}{ext}"
         else:
             safe_name = rel.name
 
@@ -146,8 +145,7 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
             for fn in raw_fieldnames:
                 _, h_ents = detector.scan(fn.replace("_", " ").replace("-", " "))
                 if h_ents:
-                    h_hash = hashlib.sha256(fn.encode("utf-8")).hexdigest()[:8]
-                    base_h = f"field_{h_hash}"
+                    base_h = anonymizer.opaque_metadata_id("field", fn)
                 else:
                     base_h = fn
                 cand = base_h
@@ -198,8 +196,7 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
             def _clean_key(key: str, used: set[str]) -> str:
                 _, k_ents = detector.scan(key.replace("_", " ").replace("-", " "))
                 if k_ents:
-                    k_hash = hashlib.sha256(key.encode("utf-8")).hexdigest()[:8]
-                    base_k = f"key_{k_hash}"
+                    base_k = anonymizer.opaque_metadata_id("key", key)
                 else:
                     base_k = key
                 cand = base_k
