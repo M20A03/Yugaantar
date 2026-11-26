@@ -1,6 +1,15 @@
 # MediShield — Complete Master Documentation
 
-All MediShield documentation consolidated into one single file, alongside the 2-page PDF brief ([MediShield_Project_Brief.pdf](MediShield_Project_Brief.pdf)).
+All MediShield documentation consolidated into one single file, alongside [MediShield_Project_Brief.pdf](MediShield_Project_Brief.pdf) and [RELEASE_CERTIFICATION_REPORT.md](RELEASE_CERTIFICATION_REPORT.md).
+
+> **Authoritative Current Verified Status (Supersedes Historical Snapshots Below):**
+> - **Backend & QA Tests:** **16/16 passed** (`./backend/.venv/bin/pytest -v backend/tests`, `2.24s`).
+> - **Frontend UI:** **10-tab light clinical theme** (`#F4F7FA` / `#FFFFFF` / `#0D9488`, incl. Metadata Security & Privacy Defense Lab), `npm run build` **passed** (`1.82s`).
+> - **Lowercase & Multilingual PII:** Sliding-window + prepositional context + lexicon (`100%` on 210 handwritten & 15 lowercase challenge; `5/6` on frozen certification challenge — unprefixed unfamiliar `"check on tanmay chatterjee"` missed).
+> - **Structured JSON & Clinical Release Gate:** `/anonymize`, `/batch-process`, and `main.py` all route serialized JSON through `sanitize_structured_payload` (`<= 32` depth) + `independent_privacy_verify` + fail-closed `verify_and_recover_clinical` (withholds/quarantines unresolved clinical loss).
+> - **Privacy Policy & Distinct-Patient $k$-Anonymity:** `10-year` age band default (`2.30%` forced top-match at $N=500$, `distinct_patient_min_k = 33`, `avg_k = 41.67`); duplicate hospital visits never inflate $k$.
+> - **240-Pair Linkage Audit:** `80/80 TP`, `80/80 TN`, `0 FP`, `80` shared-family-phone negatives routed to review (`66.67%` auto coverage, `1.0` selective & overall F1).
+> - **Official Validator:** **PENDING — ORGANIZER CONFIRMATION REQUIRED** (`validate_output.py` not present).
 
 ## Table of Contents
 
