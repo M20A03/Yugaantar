@@ -205,11 +205,13 @@ def train_and_evaluate() -> Dict[str, Any]:
     )
 
     # --- PHASE 6: Learning Curves (1k, 10k, 25k, 50k total dataset scale) ---
+    perm = np.random.RandomState(42).permutation(len(X_l_tr))
+    X_l_tr_shuf, y_l_tr_shuf = X_l_tr[perm], y_l_tr[perm]
     learning_curve = []
     for n_samples in (1000, 10000, 25000, len(l_train)):
-        idx = min(n_samples, len(X_l_tr))
+        idx = min(n_samples, len(X_l_tr_shuf))
         sub_clf = HistGradientBoostingClassifier(max_iter=80, max_depth=6, random_state=42)
-        sub_clf.fit(X_l_tr[:idx], y_l_tr[:idx])
+        sub_clf.fit(X_l_tr_shuf[:idx], y_l_tr_shuf[:idx])
         sub_pred = (sub_clf.predict_proba(X_l_te)[:, 1] >= best_thresh).astype(int)
         learning_curve.append({
             "train_samples": idx,
