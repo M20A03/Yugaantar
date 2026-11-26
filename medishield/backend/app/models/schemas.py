@@ -78,6 +78,8 @@ class LinkagePair(BaseModel):
     hospital_a: str
     hospital_b: str
     score: float
+    fellegi_sunter_llr: float = 0.0
+    decision: Literal["high_confidence_match", "uncertain_review", "non_match"] = "high_confidence_match"
     field_scores: Dict[str, float]
     reasons: List[str]
 

@@ -82,8 +82,17 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
             raw_text = src_path.read_text(encoding="latin-1", errors="replace")
 
         dst_path = sanitized_root / rel
+        # Metadata privacy: rename files if filename itself contains PII
+        _, fn_ents = detector.scan(rel.stem)
+        renamed = False
+        if fn_ents:
+            safe_name = f"redacted_{file_hash[:8]}{ext}"
+            dst_path = sanitized_root / rel.parent / safe_name
+            rel_out = f"sanitized/{(rel.parent / safe_name).as_posix()}"
+            renamed = True
+        else:
+            rel_out = f"sanitized/{rel.as_posix()}"
         dst_path.parent.mkdir(parents=True, exist_ok=True)
-        rel_out = f"sanitized/{rel.as_posix()}"
 
         if ext in {".csv", ".tsv"}:
             delim = "\t" if ext == ".tsv" else ","
@@ -121,6 +130,13 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
                 report_files.append({"input_sha256": file_hash, "output": None, "status": "quarantined", "reason": "invalid json"})
                 continue
 
+            def _clean_key(key: str) -> str:
+                _, k_ents = detector.scan(key)
+                if not k_ents:
+                    return key
+                sk, _ = anonymizer.anonymize(key, k_ents, policy)
+                return sk
+
             def _clean(x: Any) -> Any:
                 if isinstance(x, str):
                     _, e_list = detector.scan(x)
@@ -130,7 +146,7 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
                 if isinstance(x, list):
                     return [_clean(i) for i in x]
                 if isinstance(x, dict):
-                    return {k: _clean(v) for k, v in x.items()}
+                    return {_clean_key(str(k)): _clean(v) for k, v in x.items()}
                 return x
 
             cleaned_obj = _clean(obj)

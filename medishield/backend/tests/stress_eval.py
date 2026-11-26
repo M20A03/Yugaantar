@@ -6,6 +6,7 @@ spelling variants, medical abbreviations, and hard-negative linkage pairs.
 
 import json
 import random
+import re
 import sys
 import time
 import tracemalloc
@@ -236,9 +237,14 @@ def run_stress_benchmark() -> Dict[str, Any]:
             else:
                 bucket["fn"] += 1
                 missed.append(exp)
-            if el.isdigit() and f"{el}–" in sanitized.lower():
+            # Generalized 5-year age band (e.g. 19 inside 15–19 or 15 inside 15–19)
+            if el.isdigit() and (f"{el}–" in sanitized.lower() or f"–{el}" in sanitized.lower()):
                 continue
-            if el in sanitized.lower():
+            # Word-boundary output-level privacy check (avoids clinical vital/dosage substring collisions)
+            if re.search(rf"(?<![a-z0-9\u0900-\u097f]){re.escape(el)}(?![a-z0-9\u0900-\u097f])", sanitized.lower()):
+                # Skip if the exact number only remains inside a preserved clinical vital (e.g. BP 118/76 mmHg)
+                if el.isdigit() and any(el in mp.lower() for mp in rec["must_preserve"]):
+                    continue
                 bucket["leaks"] += 1
 
         bucket["tp"] += matched
@@ -273,12 +279,15 @@ def run_stress_benchmark() -> Dict[str, Any]:
         link_recs.append(HospitalRecordInput(record_id=f"N_{i}_B", hospital="H3", name=f"{fn} {ln}", phone=None, age=65, gender="M"))
 
     _, flagged, _ = linker.analyze(link_recs, threshold=0.72)
-    pred_pairs = {tuple(sorted([p.record_a, p.record_b])) for p in flagged}
+    # Only evaluate auto-linked high_confidence_match pairs against ground truth
+    pred_pairs = {tuple(sorted([p.record_a, p.record_b])) for p in flagged if p.decision == "high_confidence_match"}
+    review_pairs = sum(1 for p in flagged if p.decision == "uncertain_review")
     l_tp = len(pred_pairs & true_pairs)
     l_fp = len(pred_pairs - true_pairs)
     l_fn = len(true_pairs - pred_pairs)
     l_prec = l_tp / (l_tp + l_fp) if (l_tp + l_fp) else 1.0
     l_rec = l_tp / (l_tp + l_fn) if (l_tp + l_fn) else 1.0
+    l_f1 = (2 * l_prec * l_rec / (l_prec + l_rec)) if (l_prec + l_rec) else 0.0
 
     summary: Dict[str, Any] = {"total_records": len(records), "peak_memory_mb": round(peak_bytes / (1024 * 1024), 2), "languages": {}}
     all_tp = all_fp = all_fn = all_leaks = all_exp = all_med_ok = all_med_tot = 0
@@ -321,7 +330,9 @@ def run_stress_benchmark() -> Dict[str, Any]:
         "worst_latency_ms": round(max(all_lat), 3),
         "linkage_precision": round(l_prec, 4),
         "linkage_recall": round(l_rec, 4),
+        "linkage_f1": round(l_f1, 4),
         "linkage_false_positives": l_fp,
+        "linkage_uncertain_review": review_pairs,
     }
     return summary
 

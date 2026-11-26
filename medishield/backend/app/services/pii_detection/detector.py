@@ -143,7 +143,7 @@ class _ContextNameClassifier:
         ]
         texts = [t for t, _ in samples]
         labels = [y for _, y in samples]
-        self.vectorizer = TfidfVectorizer(ngram_range=(1, 2), lowercase=True)
+        self.vectorizer = TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 4), lowercase=True)
         X = self.vectorizer.fit_transform(texts)
         self.clf = LogisticRegression(C=2.0, max_iter=300)
         self.clf.fit(X, labels)
@@ -281,6 +281,25 @@ class MultilingualPIIDetector:
                         end=m.start(1) + len(name_val),
                         method="unstructured_ctx",
                         confidence=0.88,
+                        language=language,
+                    )
+                )
+
+        # Pattern A3: Unprefixed name before age/gender ("Rahul Sharma, 45/M" or "Priya Nair (32F)")
+        demo_name_re = re.compile(
+            r"(?:^|[.\n]\s*)([A-Z][a-z]{1,20}\s+[A-Z][a-z]{1,20})\s*[,\(]\s*\d{1,3}\s*(?:/|\s)?\s*[MFmf]\b"
+        )
+        for m in demo_name_re.finditer(text):
+            name_val = m.group(1).strip()
+            if self._valid_person_name(text, m.start(1), name_val):
+                candidates.append(
+                    DetectedEntity(
+                        entity_type="PERSON",
+                        text=name_val,
+                        start=m.start(1),
+                        end=m.start(1) + len(name_val),
+                        method="demographic_ctx",
+                        confidence=0.89,
                         language=language,
                     )
                 )

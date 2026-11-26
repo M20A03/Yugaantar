@@ -11,23 +11,41 @@ from app.services.pii_detection.detector import normalize_text
 
 
 class AnonymizerEngine:
-    """Applies configurable, deterministic or session-scoped privacy transformations."""
+    """Applies configurable transformations with domain-separated HKDF/HMAC keys."""
 
-    def __init__(self, secret_key: str | None = None) -> None:
-        self._secret = (
+    def __init__(self, secret_key: str | None = None, release_scope: str = "default-release") -> None:
+        self._master = (
             secret_key
             or os.environ.get("RAKSHA_SECRET")
             or secrets.token_hex(32)
         ).encode("utf-8")
+        self._release_scope = release_scope
+        self._issued_pseudonyms: Dict[str, str] = {}
+
+    def _derive_release_key(self) -> bytes:
+        return hmac.new(
+            self._master,
+            f"medishield:hkdf:v1:{self._release_scope}".encode("utf-8"),
+            hashlib.sha256,
+        ).digest()
 
     def pseudonym_for(self, entity_type: str, value: str) -> str:
+        norm_val = value.strip().lower()
+        subkey = self._derive_release_key()
         digest = hmac.new(
-            self._secret,
-            f"{entity_type}:{value.strip().lower()}".encode("utf-8"),
+            subkey,
+            f"medishield:v1:{self._release_scope}:{entity_type}:{norm_val}".encode("utf-8"),
             hashlib.sha256,
-        ).hexdigest()[:6].upper()
+        ).hexdigest()[:8].upper()
         prefix = "PATIENT" if entity_type in {"PERSON", "RELATIVE_PERSON"} else entity_type
-        return f"[{prefix}_{digest}]"
+        token = f"[{prefix}_{digest}]"
+        # Collision guard within release scope
+        prev = self._issued_pseudonyms.get(token)
+        if prev is not None and prev != f"{entity_type}:{norm_val}":
+            digest = hmac.new(subkey, f"{entity_type}:{norm_val}:c".encode("utf-8"), hashlib.sha256).hexdigest()[:10].upper()
+            token = f"[{prefix}_{digest}]"
+        self._issued_pseudonyms[token] = f"{entity_type}:{norm_val}"
+        return token
 
     def transform_entity(self, ent: DetectedEntity, mode: TransformMode, age_band_size: int) -> str:
         if mode == "suppression":

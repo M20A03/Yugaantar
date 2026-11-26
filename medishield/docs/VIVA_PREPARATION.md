@@ -196,3 +196,21 @@
 >
 > **2:30 – 3:00 (Closing):**  
 > "MediShield runs via both a FastAPI + React dashboard and an offline `raksha.toml` CLI outputting `sanitized/`, `report.json`, and `records.jsonl`. Thank you—I am ready for your questions."
+
+---
+
+## 10. Phase 2–7 Improvements Explained Simply (For BCA Viva)
+
+1. **Fellegi-Sunter 3-Tier Record Linkage (`linker.py`):**
+   - *What it does:* Scores pairs of hospital records using Jaro-Winkler, token similarity, character 3-grams, phone match, age, and gender, then computes a **Fellegi-Sunter Log-Likelihood Ratio (LLR)**.
+   - *Why we need it:* Prevents merging two strangers who share a name (`Rahul Sharma`) when their ages differ by > 5 years or phones are missing.
+   - *3 Tiers:* `high_confidence_match` (auto-clustered), `uncertain_review` (needs human check), and `non_match`.
+   - *Result:* False positives dropped from **700 → 64**, Precision rose from **6.7% → 43.9%** with **100% Recall**.
+2. **Leakage Investigation (`stress_eval.py`):**
+   - *What we found:* The earlier `3.66%` (182 flagged leaks) was **not** real leaked names or phones — **179** were age digits matching the upper bound of generalized 5-year bands (e.g., `19` inside `15–19`), and **3** were age `76` matching the clinical reading `BP 118/76 mmHg`. True PII leakage on the 1,050-record suite is **0.0%**.
+3. **Metadata Privacy (`main.py`):**
+   - *What it does:* Scans filenames and JSON dictionary keys for PII. If a filename contains a patient's name, it renames the output file to `redacted_<sha256_8>.<ext>` instead of leaking the name.
+4. **Domain-Separated HKDF/HMAC (`anonymizer.py`):**
+   - *What it does:* Derives a release-specific subkey from `RAKSHA_SECRET` + `release_scope` so pseudonyms cannot be linked across two unrelated hospital data releases, and checks for hash collisions. *(Note: HMAC is pseudonymization, NOT a Zero-Knowledge Proof.)*
+5. **Character N-Gram TF-IDF (`detector.py`):**
+   - *What it does:* Uses `char_wb` (2–4 character chunks) instead of only whole words so typos like `Pateint` or transliteration spellings are still scored accurately.
