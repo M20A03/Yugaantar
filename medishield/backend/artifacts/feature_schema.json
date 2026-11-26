@@ -1,0 +1,21 @@
+{
+  "features": [
+    "name_jw",
+    "name_lev",
+    "name_ngram",
+    "name_token_set",
+    "name_phonetic",
+    "last_name_sim",
+    "phone_exact",
+    "phone_near",
+    "phone_available",
+    "age_diff",
+    "age_missing",
+    "dob_agree",
+    "address_sim",
+    "gender_agree",
+    "missing_fraction",
+    "contradictory_evidence"
+  ],
+  "version": "v3"
+}

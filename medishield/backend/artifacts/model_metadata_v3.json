@@ -1,0 +1,7 @@
+{
+  "pii_model": "pii_model_v3.joblib",
+  "linkage_model": "linkage_model_v3.joblib",
+  "selected_linkage_algo": "logistic_regression_calibrated",
+  "offline_only": true,
+  "zero_llm": true
+}

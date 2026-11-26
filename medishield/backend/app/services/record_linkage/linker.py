@@ -73,7 +73,10 @@ class RecordLinkageEngine:
     def __init__(self, secret_key: str | None = None, release_scope: str = "linkage-default") -> None:
         self._master = (secret_key or os.environ.get("RAKSHA_SECRET") or secrets.token_hex(32)).encode("utf-8")
         self._scope = release_scope
-        artifact = Path(__file__).resolve().parents[3] / "artifacts" / "linkage_model.joblib"
+        artifacts_dir = Path(__file__).resolve().parents[3] / "artifacts"
+        v3_path = artifacts_dir / "linkage_model_v3.joblib"
+        v2_path = artifacts_dir / "linkage_model.joblib"
+        artifact = v3_path if v3_path.is_file() else v2_path
         bundle = joblib.load(artifact) if artifact.is_file() else None
         self._ml_model = bundle["model"] if bundle else None
         self._high_thresh = float(bundle["high_threshold"]) if bundle else 0.85

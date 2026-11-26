@@ -15,7 +15,7 @@
 - **`medishield/backend/app/services/pii_detection/detector.py`**: The brain that finds personal information (names, phones, Aadhaar, PAN, emails, addresses, ages, hospital IDs) in English, Hindi (Devanagari), and Hinglish without using any LLM.
 - **`medishield/backend/app/services/anonymization/anonymizer.py`**: Replaces detected PII using 5 strategies: Redaction, Masking, HMAC Pseudonymization, Generalization (age bands), and Suppression.
 - **`medishield/backend/app/services/record_linkage/linker.py`**: Checks whether records from different hospitals belong to the same patient using Soundex blocking and `RapidFuzz` text similarity.
-- **`medishield/backend/app/services/risk_analysis/risk_analyzer.py`**: Calculates *k*-anonymity and re-identification risk before and after cleaning.
+- **`medishield/backend/app/services/risk_analysis/risk_analyzer.py`**: Calculates _k_-anonymity and re-identification risk before and after cleaning.
 - **`medishield/backend/app/services/medical_fidelity/fidelity.py`**: Verifies that diagnoses, medicines, dosages, symptoms, and vitals were NOT accidentally deleted.
 - **`medishield/backend/app/services/storage/audit_db.py`**: Saves only safe, non-PII numbers (counts, fidelity score, latency) into SQLite. Never saves raw patient text.
 - **`medishield/backend/app/services/evaluation/evaluator.py` & `tests/stress_eval.py`**: Runs automated benchmarks (including a 1,050-record synthetic stress test) to measure real Precision, Recall, F1, Leakage Rate, and Latency.
@@ -70,14 +70,16 @@
 ## 5. Advantages & Disadvantages
 
 **Advantages:**
+
 - 100% offline, CPU-only, zero LLM cost or data leakage to cloud APIs.
 - Very fast (~1.4 ms average per record, < 1 MB memory).
 - Handles English, Devanagari Hindi, and Hinglish together.
 - Preserves clinical data (100% medical fidelity on our synthetic benchmark).
 
 **Disadvantages / Limitations:**
+
 - Unseen free-text names without any prefix, honorific, or clinical verb (`"visited"`, `"presented"`) can still be missed because no large NER transformer is used.
-- *k*-anonymity is a heuristic on the current batch, not a mathematical guarantee against external datasets.
+- _k_-anonymity is a heuristic on the current batch, not a mathematical guarantee against external datasets.
 - The official Track 3 Secret Wards starter kit/validator was not present in the workspace, and the updated 2-page PDF mentioned Zero-Knowledge Proofs (ZKPs), so exact official evaluation scripts could not be run.
 
 ---
@@ -90,7 +92,7 @@
 4. **What is PHI?** Protected Health Information — PII combined with medical details.
 5. **What is a quasi-identifier?** A field like age, gender, village, or visit date that cannot identify someone alone, but can identify them when combined.
 6. **What is a linkage attack?** Matching an anonymized medical record with a public list (like a voter list) using age, gender, location, and stay length.
-7. **What is *k*-anonymity?** A rule where every record looks identical to at least $k-1$ other records on quasi-identifiers.
+7. **What is _k_-anonymity?** A rule where every record looks identical to at least $k-1$ other records on quasi-identifiers.
 8. **How does MediShield reduce quasi-identifier risk?** It groups ages into 5-year bands (`45–49`), generalizes addresses, and can suppress rare diagnoses.
 9. **What is the difference between Redaction and Masking?** Redaction replaces text with a label (`[PHONE_REDACTED]`); masking hides middle characters (`98******10`).
 10. **What is Pseudonymization?** Replacing a real name with a consistent fake ID (`[PATIENT_868679]`).
@@ -140,25 +142,25 @@
 ## 7. 10 Difficult Questions Judges Might Ask (With Answers)
 
 1. **"If `RAKSHA_SECRET` is reused across two separate hospitals, couldn't an attacker link pseudonyms across datasets?"**  
-   *Answer:* Yes—deterministic HMAC allows linking records *within* the authorized scope of that key. In production, each data-sharing release should use a **per-release or per-study salted key** so pseudonyms cannot be correlated across unrelated releases.
+   _Answer:_ Yes—deterministic HMAC allows linking records _within_ the authorized scope of that key. In production, each data-sharing release should use a **per-release or per-study salted key** so pseudonyms cannot be correlated across unrelated releases.
 2. **"Why did your 1,050-record stress test still show a 3.66% leakage rate when Recall was 1.0?"**  
-   *Answer:* Because of our strict substring check in the benchmark: for example, when an age like `50` or `30` is generalized or matches digits inside `500 mg` or `130/85`, a naive substring check flags it, and some overlapping multi-token spans need exact boundary checks. We report the raw number honestly rather than hiding it.
+   _Answer:_ Because of our strict substring check in the benchmark: for example, when an age like `50` or `30` is generalized or matches digits inside `500 mg` or `130/85`, a naive substring check flags it, and some overlapping multi-token spans need exact boundary checks. We report the raw number honestly rather than hiding it.
 3. **"Why was your Record Linkage precision only 25.8% on the stress test?"**  
-   *Answer:* Our stress test intentionally created 50 pairs of *different* patients who shared the exact same name, same gender, and *missing* phone numbers. Even after adding a hard age-gap guard (`diff > 5`), records that wrapped around to the same age with no phone number cannot be separated by name+age alone—showing why automated linkage should flag low-evidence pairs for human review rather than auto-merging.
+   _Answer:_ Our stress test intentionally created 50 pairs of _different_ patients who shared the exact same name, same gender, and _missing_ phone numbers. Even after adding a hard age-gap guard (`diff > 5`), records that wrapped around to the same age with no phone number cannot be separated by name+age alone—showing why automated linkage should flag low-evidence pairs for human review rather than auto-merging.
 4. **"How do you handle a completely unseen Indian name in the middle of a sentence with no prefix like `Patient` or `ji`?"**  
-   *Answer:* Right now, `detector.py` catches prefixed names, Hinglish honorifics, `C/O` relatives, and sentence-initial clinical subjects (`"X presented with..."`). Truly unprefixed mid-sentence names without an LLM/large NER model are a known limitation of our lightweight <50M-param rule+ML design.
+   _Answer:_ Right now, `detector.py` catches prefixed names, Hinglish honorifics, `C/O` relatives, and sentence-initial clinical subjects (`"X presented with..."`). Truly unprefixed mid-sentence names without an LLM/large NER model are a known limitation of our lightweight <50M-param rule+ML design.
 5. **"Your updated 2-page hackathon PDF mentioned Zero-Knowledge Proofs for Track 3. Does MediShield have ZKPs?"**  
-   *Answer:* No—MediShield implements the full offline English/Hindi/Hinglish PII Firewall & Record Linkage specification. Because the updated 2-page PDF did not include a ZKP detail tab or starter kit, we documented that gap honestly rather than faking a ZKP module.
+   _Answer:_ No—MediShield implements the full offline English/Hindi/Hinglish PII Firewall & Record Linkage specification. Because the updated 2-page PDF did not include a ZKP detail tab or starter kit, we documented that gap honestly rather than faking a ZKP module.
 6. **"What happens if an attacker puts a patient's name inside a CSV column header or JSON key?"**  
-   *Answer:* In `routes.py` and `main.py`, string values are scanned, but JSON keys and CSV headers are currently preserved as-is—that is an area we identified in our code audit for future hardening.
+   _Answer:_ In `routes.py` and `main.py`, string values are scanned, but JSON keys and CSV headers are currently preserved as-is—that is an area we identified in our code audit for future hardening.
 7. **"Can your system handle broken UTF-8 or Latin-1 legacy hospital CSVs?"**  
-   *Answer:* Yes, `main.py` tries strict UTF-8 first and falls back to `latin-1` with replacement so legacy exports don't crash the pipeline.
+   _Answer:_ Yes, `main.py` tries strict UTF-8 first and falls back to `latin-1` with replacement so legacy exports don't crash the pipeline.
 8. **"How do you ensure `Dr. Sharma` is not redacted while `Patient Rahul Sharma` is?"**  
-   *Answer:* `_valid_person_name()` checks the 8 characters before a match for `Dr.` / `Doctor` / `डॉ.` and skips doctor names.
+   _Answer:_ `_valid_person_name()` checks the 8 characters before a match for `Dr.` / `Doctor` / `डॉ.` and skips doctor names.
 9. **"Why didn't you use a 400MB spaCy transformer or BERT model?"**  
-   *Answer:* Track 3 rules forbid LLMs and large pretrained transformers (>50M parameters) and enforce strict offline CPU/RAM limits. Our hybrid engine runs in ~1.4 ms with <1 MB traced memory.
+   _Answer:_ Track 3 rules forbid LLMs and large pretrained transformers (>50M parameters) and enforce strict offline CPU/RAM limits. Our hybrid engine runs in ~1.4 ms with <1 MB traced memory.
 10. **"What if a patient has a rare disease like `Autoimmune Vasculitis`—doesn't that single them out even after removing their name?"**  
-    *Answer:* Yes. That's why `risk_analyzer.py` includes a `suppress_rare` option that suppresses diagnoses appearing fewer than `rare_threshold` times in a batch.
+    _Answer:_ Yes. That's why `risk_analyzer.py` includes a `suppress_rare` option that suppresses diagnoses appearing fewer than `rare_threshold` times in a batch.
 
 ---
 
@@ -186,13 +188,13 @@
 ## 9. 3-Minute Project Presentation Script
 
 > **0:00 – 0:40 (Problem):**  
-> "Hello judges. Indian hospitals store patient records across messy CSVs, JSONs, and notes mixing English, Hindi, and Hinglish. Standard PII tools fail here—they miss Devanagari names like *मोहम्मद आरिफ*, confuse *C/O Ramesh* with *C/O fever*, and accidentally redact medicine doses like *1-0-1*. Worse, even after removing names, attackers can re-identify patients using age, village, and cross-hospital records."
+> "Hello judges. Indian hospitals store patient records across messy CSVs, JSONs, and notes mixing English, Hindi, and Hinglish. Standard PII tools fail here—they miss Devanagari names like _मोहम्मद आरिफ_, confuse _C/O Ramesh_ with _C/O fever_, and accidentally redact medicine doses like _1-0-1_. Worse, even after removing names, attackers can re-identify patients using age, village, and cross-hospital records."
 >
 > **0:40 – 1:40 (Solution & Architecture):**  
-> "We built **MediShield**, a 100% offline, CPU-only, zero-LLM healthcare privacy firewall. Every record goes through four stages: First, Unicode normalization and Devanagari-to-Latin transliteration. Second, a hybrid detection engine combining regex, Indian context rules, clinical whitelists, and a lightweight scikit-learn classifier. Third, configurable anonymization using keyed HMAC-SHA256 pseudonyms and 5-year age bands. Fourth, cross-hospital linkage detection using Soundex blocking and RapidFuzz, plus *k*-anonymity risk and medical fidelity checks."
+> "We built **MediShield**, a 100% offline, CPU-only, zero-LLM healthcare privacy firewall. Every record goes through four stages: First, Unicode normalization and Devanagari-to-Latin transliteration. Second, a hybrid detection engine combining regex, Indian context rules, clinical whitelists, and a lightweight scikit-learn classifier. Third, configurable anonymization using keyed HMAC-SHA256 pseudonyms and 5-year age bands. Fourth, cross-hospital linkage detection using Soundex blocking and RapidFuzz, plus _k_-anonymity risk and medical fidelity checks."
 >
 > **1:40 – 2:30 (Live Demo & Benchmarks):**  
-> "In our live split-screen scanner, you can see Hinglish and Hindi notes sanitized in under 2 milliseconds while keeping *Type 2 Diabetes*, *Metformin 500 mg*, and *130/85 mmHg* 100% intact. We also audited our system with an independent 1,050-record synthetic stress test across English, Hindi, and Hinglish—catching real gaps in international phones, Hinglish `umra`/`pata` labels, and linkage false positives, raising overall recall from 84.1% to 100% on the stress suite."
+> "In our live split-screen scanner, you can see Hinglish and Hindi notes sanitized in under 2 milliseconds while keeping _Type 2 Diabetes_, _Metformin 500 mg_, and _130/85 mmHg_ 100% intact. We also audited our system with an independent 1,050-record synthetic stress test across English, Hindi, and Hinglish—catching real gaps in international phones, Hinglish `umra`/`pata` labels, and linkage false positives, raising overall recall from 84.1% to 100% on the stress suite."
 >
 > **2:30 – 3:00 (Closing):**  
 > "MediShield runs via both a FastAPI + React dashboard and an offline `raksha.toml` CLI outputting `sanitized/`, `report.json`, and `records.jsonl`. Thank you—I am ready for your questions."
@@ -202,18 +204,18 @@
 ## 10. Phase 2–7 Improvements Explained Simply (For BCA Viva)
 
 1. **Fellegi-Sunter 3-Tier Record Linkage (`linker.py`):**
-   - *What it does:* Scores pairs of hospital records using Jaro-Winkler, token similarity, character 3-grams, phone match, age, and gender, then computes a **Fellegi-Sunter Log-Likelihood Ratio (LLR)**.
-   - *Why we need it:* Prevents merging two strangers who share a name (`Rahul Sharma`) when their ages differ by > 5 years or phones are missing.
-   - *3 Tiers:* `high_confidence_match` (auto-clustered), `uncertain_review` (needs human check), and `non_match`.
-   - *Result:* False positives dropped from **700 → 64**, Precision rose from **6.7% → 43.9%** with **100% Recall**.
+   - _What it does:_ Scores pairs of hospital records using Jaro-Winkler, token similarity, character 3-grams, phone match, age, and gender, then computes a **Fellegi-Sunter Log-Likelihood Ratio (LLR)**.
+   - _Why we need it:_ Prevents merging two strangers who share a name (`Rahul Sharma`) when their ages differ by > 5 years or phones are missing.
+   - _3 Tiers:_ `high_confidence_match` (auto-clustered), `uncertain_review` (needs human check), and `non_match`.
+   - _Result:_ False positives dropped from **700 → 64**, Precision rose from **6.7% → 43.9%** with **100% Recall**.
 2. **Leakage Investigation (`stress_eval.py`):**
-   - *What we found:* The earlier `3.66%` (182 flagged leaks) was **not** real leaked names or phones — **179** were age digits matching the upper bound of generalized 5-year bands (e.g., `19` inside `15–19`), and **3** were age `76` matching the clinical reading `BP 118/76 mmHg`. True PII leakage on the 1,050-record suite is **0.0%**.
+   - _What we found:_ The earlier `3.66%` (182 flagged leaks) was **not** real leaked names or phones — **179** were age digits matching the upper bound of generalized 5-year bands (e.g., `19` inside `15–19`), and **3** were age `76` matching the clinical reading `BP 118/76 mmHg`. True PII leakage on the 1,050-record suite is **0.0%**.
 3. **Metadata Privacy (`main.py`):**
-   - *What it does:* Scans filenames and JSON dictionary keys for PII. If a filename contains a patient's name, it renames the output file to `redacted_<sha256_8>.<ext>` instead of leaking the name.
+   - _What it does:_ Scans filenames and JSON dictionary keys for PII. If a filename contains a patient's name, it renames the output file to `redacted_<sha256_8>.<ext>` instead of leaking the name.
 4. **Domain-Separated HKDF/HMAC (`anonymizer.py`):**
-   - *What it does:* Derives a release-specific subkey from `RAKSHA_SECRET` + `release_scope` so pseudonyms cannot be linked across two unrelated hospital data releases, and checks for hash collisions. *(Note: HMAC is pseudonymization, NOT a Zero-Knowledge Proof.)*
+   - _What it does:_ Derives a release-specific subkey from `RAKSHA_SECRET` + `release_scope` so pseudonyms cannot be linked across two unrelated hospital data releases, and checks for hash collisions. _(Note: HMAC is pseudonymization, NOT a Zero-Knowledge Proof.)_
 5. **Character N-Gram TF-IDF (`detector.py`):**
-   - *What it does:* Uses `char_wb` (2–4 character chunks) instead of only whole words so typos like `Pateint` or transliteration spellings are still scored accurately.
+   - _What it does:_ Uses `char_wb` (2–4 character chunks) instead of only whole words so typos like `Pateint` or transliteration spellings are still scored accurately.
 
 ---
 
@@ -242,3 +244,48 @@
   - **Inference Speed:** `0.95 ms` total for 5,000 pairs (`0.00019 ms` per pair)
 - **Why were there 500 False Negatives?**  
   All 500 were `pos_2` pairs where one hospital was **missing the phone number** (`prob = 0.581`). Because `0.581` falls between `0.50` (`uncertain_review`) and `0.65` (`high_threshold`), MediShield **conservatively flagged them for human review** instead of risking a wrong auto-merge.
+
+---
+
+## 13. MediShield V3 Concepts & 30 Additional Viva Questions (Simple English)
+
+### Key V3 Concepts Explained Simply
+- **Why the earlier model got 100% F1:** Negative pairs in the old dataset always had big age gaps or different phones, and test names overlapped with training names.
+- **Data Leakage:** When information from the test set accidentally sneaks into training (like sharing the same patient names or templates across splits).
+- **Overfitting:** When a model memorizes training shortcuts instead of learning general rules, so it drops on new unseen data.
+- **Why missing phones create uncertainty:** Without a phone number or DOB, two different people with the same name (`Rahul Sharma`) look identical—so we route them to **Human Review** instead of guessing.
+- **Improved Feature Engineering (`features.py`):** Separates `phone_available` (missing) from `contradictory_evidence` (`phone_dist >= 3`, gender mismatch, age gap > 5, DOB mismatch), and adds `last_name_sim` and `dob_agree`.
+- **Why compare 5 models & calibrate thresholds:** We pick the simplest, most explainable model (`Calibrated Logistic Regression`, `1.4 KB`, Brier score `0.0`) and tune thresholds on validation data so auto-merge precision stays `>= 99%`.
+- **Why precision matters in healthcare:** Merging two wrong patients mixes up allergies, blood types, and prescriptions—which can harm a patient.
+
+### 30 Additional V3 Technical Viva Questions
+51. **What is `features.py`?** A single shared module used by both training and backend inference so features never mismatch.
+52. **What is train/serve skew?** A bug where training calculates a feature differently from the live backend.
+53. **Why did we add `last_name_sim`?** To prevent merging people who share a first name (`Sujata Paranjape` vs `Sujata Chitale`).
+54. **Why is `fuzz.ratio < 0.60` bad for 10-digit phones?** Random 10-digit numbers often share 5–6 digits by coincidence (`60%` ratio).
+55. **How did V3 fix the 19 false positives?** By flagging phones differing by `>= 3` digits (`Levenshtein.distance >= 3`) as contradictory evidence.
+56. **What is `phone_near`?** `1.0` when two phones differ by at most 1 digit (a typo), `0.0` otherwise.
+57. **Why is a missing phone NOT contradictory?** Because a hospital simply might not have recorded it; `phone_available=0` and `contradictory_evidence=0`.
+58. **Why do we NOT use medical diagnosis to prove identity?** Two different people in the same city can both have `Type 2 Diabetes` or `Dengue`.
+59. **What is `CalibratedClassifierCV` (sigmoid)?** Platt scaling—adjusts model probabilities so `0.80` truly means 80% likely to be a match.
+60. **What is Brier score?** Measures how accurate predicted probabilities are (`0.0` is perfect).
+61. **Why choose Logistic Regression (`1.4 KB`) over Random Forest (`34.3 KB`)?** Same `1.0` validation F1, zero Brier error, 24x smaller file, and easy to explain feature weights.
+62. **What are the 3 stages in 3-stage matching?** `HIGH_CONFIDENCE_MATCH` (auto-link), `UNCERTAIN_REVIEW` (human check), `NON_MATCH` (reject).
+63. **Should `UNCERTAIN_REVIEW` records be counted as auto-matched?** No—only auto-accepted pairs count toward auto-match precision/recall.
+64. **What is a Precision-Recall curve?** A plot showing the trade-off between precision and recall at every probability threshold.
+65. **What is the difference between `model_predict_ms` and complete linkage time?** Model prediction (`3.85 ms`) only runs math on numbers; complete linkage (`684.97 ms` for 5k pairs) includes string normalization & RapidFuzz feature extraction.
+66. **What is P95 latency?** The time within which 95% of requests finish (`2.576 ms` per record in V3).
+67. **Why did we keep `pii_model.joblib` and `linkage_model.joblib` as backups?** So we can always roll back if needed without breaking the app.
+68. **What is `feature_schema.json`?** Records the exact list and order of the 16 features expected by `linkage_model_v3.joblib`.
+69. **What is `threshold_config.json`?** Stores the calibrated `high_confidence_threshold` and `review_threshold` separately from code.
+70. **What is a sealed challenge dataset?** A brand-new test set using unseen names and cities that is evaluated only once after freezing the model.
+71. **Why is `historical_5000` kept separate from `sealed_5000`?** Because once we inspect failures on a dataset, tuning on it would overfit—so we need a fresh sealed set.
+72. **What is patient-disjoint splitting?** Ensuring all records of the same person stay in only one split (train OR val OR test).
+73. **What is template-disjoint splitting?** Ensuring phrasing templates don't leak across splits.
+74. **What is a shared family phone number?** When two family members (e.g., mother and son) register with the same mobile number—our model catches this via age gap + gender + first name.
+75. **How does `MediShield_V3_Optimization.ipynb` run on Colab?** On free Colab CPU in ~1 minute, with zero GPU needed.
+76. **Does the live backend need internet or Colab?** No—it loads local `.joblib` files 100% offline.
+77. **What is the difference between PII detection and PII removal?** Detection finds where PII is; removal/anonymization actually replaces it and ensures it doesn't leak in headers, keys, filenames, or logs.
+78. **What happens if `main.py` sees a filename like `rahul_sharma_opd.txt`?** It renames the output file to `redacted_<hash>.txt`.
+79. **What happens if `RAKSHA_SECRET` is reused across two unrelated releases?** Attackers could correlate pseudonyms across releases; V3 uses HKDF domain separation with `release_scope`.
+80. **What is the main remaining limitation of MediShield?** Synthetic datasets cannot capture every real-world hospital abbreviation, and the official Track 3 organizer validator/ZKP contract was not in the workspace.

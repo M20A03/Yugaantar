@@ -130,7 +130,10 @@ class _ContextNameClassifier:
     """Offline TF-IDF + LogisticRegression classifier (loads trained artifact if present)."""
 
     def __init__(self) -> None:
-        artifact = Path(__file__).resolve().parents[3] / "artifacts" / "pii_model.joblib"
+        artifacts_dir = Path(__file__).resolve().parents[3] / "artifacts"
+        v3_path = artifacts_dir / "pii_model_v3.joblib"
+        v2_path = artifacts_dir / "pii_model.joblib"
+        artifact = v3_path if v3_path.is_file() else v2_path
         self.pipeline = joblib.load(artifact) if artifact.is_file() else None
         if self.pipeline is not None:
             return

@@ -1,0 +1,188 @@
+{
+  "leakage_audit": {
+    "train_val_name_overlap": 0,
+    "train_test_name_overlap": 0,
+    "train_sealed_name_overlap": 0,
+    "val_test_name_overlap": 0,
+    "duplicate_pair_ids": 0
+  },
+  "model_comparison_val": {
+    "logistic_regression_calibrated": {
+      "val_precision": 1.0,
+      "val_recall": 1.0,
+      "val_f1": 1.0,
+      "brier_score": 0.0,
+      "train_seconds": 0.78,
+      "val_predict_ms": 27.86,
+      "size_kb": 1.4
+    },
+    "random_forest": {
+      "val_precision": 1.0,
+      "val_recall": 1.0,
+      "val_f1": 1.0,
+      "brier_score": 0.0,
+      "train_seconds": 1.26,
+      "val_predict_ms": 85.73,
+      "size_kb": 34.3
+    },
+    "gradient_boosting": {
+      "val_precision": 1.0,
+      "val_recall": 1.0,
+      "val_f1": 1.0,
+      "brier_score": 0.0,
+      "train_seconds": 1.39,
+      "val_predict_ms": 9.13,
+      "size_kb": 20.8
+    },
+    "hist_gradient_boosting": {
+      "val_precision": 1.0,
+      "val_recall": 1.0,
+      "val_f1": 1.0,
+      "brier_score": 0.0,
+      "train_seconds": 0.51,
+      "val_predict_ms": 12.11,
+      "size_kb": 18.5
+    },
+    "fellegi_sunter_baseline": {
+      "val_precision": 0.75,
+      "val_recall": 1.0,
+      "val_f1": 0.8571,
+      "brier_score": 0.1222,
+      "train_seconds": 0.0,
+      "val_predict_ms": 0.5,
+      "size_kb": 0.2
+    }
+  },
+  "selected_linkage_model": "logistic_regression_calibrated",
+  "thresholds": {
+    "high_confidence": 0.6,
+    "review": 0.35
+  },
+  "validation_3stage": {
+    "auto_precision": 1.0,
+    "auto_recall": 1.0,
+    "auto_f1": 1.0,
+    "incorrect_auto_matches_fp": 0,
+    "missed_auto_matches_fn": 0,
+    "true_positives": 3750,
+    "true_negatives_auto": 3750,
+    "review_count": 0,
+    "review_rate": 0.0,
+    "review_true_positives": 0,
+    "review_true_negatives": 0,
+    "binary_confusion_matrix": [
+      [
+        3750,
+        0
+      ],
+      [
+        0,
+        3750
+      ]
+    ]
+  },
+  "test_3stage": {
+    "auto_precision": 1.0,
+    "auto_recall": 1.0,
+    "auto_f1": 1.0,
+    "incorrect_auto_matches_fp": 0,
+    "missed_auto_matches_fn": 0,
+    "true_positives": 3750,
+    "true_negatives_auto": 3750,
+    "review_count": 0,
+    "review_rate": 0.0,
+    "review_true_positives": 0,
+    "review_true_negatives": 0,
+    "binary_confusion_matrix": [
+      [
+        3750,
+        0
+      ],
+      [
+        0,
+        3750
+      ]
+    ]
+  },
+  "historical_5000_3stage": {
+    "auto_precision": 1.0,
+    "auto_recall": 0.8,
+    "auto_f1": 0.8889,
+    "incorrect_auto_matches_fp": 0,
+    "missed_auto_matches_fn": 500,
+    "true_positives": 2000,
+    "true_negatives_auto": 2500,
+    "review_count": 0,
+    "review_rate": 0.0,
+    "review_true_positives": 0,
+    "review_true_negatives": 0,
+    "binary_confusion_matrix": [
+      [
+        2500,
+        0
+      ],
+      [
+        500,
+        2000
+      ]
+    ]
+  },
+  "sealed_5000_3stage": {
+    "auto_precision": 1.0,
+    "auto_recall": 1.0,
+    "auto_f1": 1.0,
+    "incorrect_auto_matches_fp": 0,
+    "missed_auto_matches_fn": 0,
+    "true_positives": 2500,
+    "true_negatives_auto": 2500,
+    "review_count": 0,
+    "review_rate": 0.0,
+    "review_true_positives": 0,
+    "review_true_negatives": 0,
+    "binary_confusion_matrix": [
+      [
+        2500,
+        0
+      ],
+      [
+        0,
+        2500
+      ]
+    ]
+  },
+  "pii_pipeline_audit_500": {
+    "en": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "medical_fidelity": 0.9948
+    },
+    "hi": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "medical_fidelity": 1.0
+    },
+    "hinglish": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "medical_fidelity": 0.9916
+    }
+  },
+  "benchmarks": {
+    "model_load_ms": 1.83,
+    "train_feature_extraction_ms_35k": 4628.2,
+    "sealed_5k_feature_extraction_ms": 681.13,
+    "sealed_5k_model_predict_ms": 3.85,
+    "sealed_5k_complete_linkage_ms": 684.97,
+    "single_record_latency_ms": {
+      "mean": 2.063,
+      "median": 2.302,
+      "p95": 2.576,
+      "max": 26.12
+    },
+    "peak_traced_memory_mb": 89.92,
+    "linkage_model_v3_size_kb": 1.6
+  }
+}

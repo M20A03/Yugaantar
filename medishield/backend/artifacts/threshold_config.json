@@ -1,0 +1,5 @@
+{
+  "high_confidence_threshold": 0.6,
+  "review_threshold": 0.35,
+  "selected_model": "logistic_regression_calibrated"
+}

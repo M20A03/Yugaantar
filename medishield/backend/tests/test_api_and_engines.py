@@ -102,3 +102,21 @@ def test_risk_analysis_and_evaluation_lab():
     assert e_data["f1_score"] >= 0.8
     assert e_data["pii_leakage_rate"] == 0.0
     assert e_data["medical_preservation_rate"] == 1.0
+
+
+def test_v3_linkage_hard_negative_and_features():
+    from app.services.record_linkage.features import extract_pair_features
+
+    # Shared family phone but different first name, gender, and 24-year age gap -> contradictory!
+    a = {"name": "Aarav Kulkarni", "phone": "9876543210", "age": 25, "gender": "M", "address": "Mumbai"}
+    b = {"name": "Pooja Kulkarni", "phone": "9876543210", "age": 49, "gender": "F", "address": "Mumbai"}
+    feats = extract_pair_features(a, b)
+    assert feats[-1] == 1.0  # contradictory_evidence must trigger
+
+    # Missing phone should NOT be marked contradictory when other fields agree
+    c = {"name": "Aarav Kulkarni", "phone": None, "age": 25, "gender": "M", "address": "Mumbai", "dob": "2001-04-12"}
+    a["dob"] = "2001-04-12"
+    feats_miss = extract_pair_features(a, c)
+    assert feats_miss[8] == 0.0   # phone_available == 0
+    assert feats_miss[-1] == 0.0  # contradictory_evidence == 0
+    assert feats_miss[11] == 1.0  # dob_agree == 1
