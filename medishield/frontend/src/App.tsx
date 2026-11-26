@@ -45,7 +45,7 @@ const SAMPLE_RECORDS: Record<string, string> = {
     "Pt. Sunita Yadav, C/O fever and cough since 3 days. Dr. Rajesh Gupta advised Ramipril 5 mg OD and Dolo 650 mg 1-0-1. Email: sunita.yadav@example.in, PAN: ABCDE1234F.",
 };
 
-const CHART_COLORS = ["#14B8A6", "#10B981", "#38BDF8", "#F59E0B", "#F43F5E", "#94A3B8"];
+const CHART_COLORS = ["#0D9488", "#059669", "#0284C7", "#D97706", "#E11D48", "#64748B"];
 
 function HighlightedText({ text, entities }: { text: string; entities: DetectedEntity[] }) {
   if (!entities.length) return <span>{text}</span>;
@@ -61,7 +61,7 @@ function HighlightedText({ text, entities }: { text: string; entities: DetectedE
       <mark
         key={`e-${idx}`}
         title={`${ent.entity_type} (${ent.method}, ${(ent.confidence * 100).toFixed(0)}%)`}
-        className="rounded bg-amber-500/20 px-1 py-0.5 text-amber-200 border border-amber-500/40"
+        className="rounded bg-amber-100 px-1 py-0.5 text-amber-900 border border-amber-300 font-medium"
       >
         {text.slice(ent.start, ent.end)}
       </mark>
@@ -80,7 +80,6 @@ export default function App() {
   const [metrics, setMetrics] = useState<MetricsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Scanner state
   const [inputText, setInputText] = useState(SAMPLE_RECORDS.Hinglish);
   const [policyMode, setPolicyMode] = useState("pseudonymization");
   const [ageBand, setAgeBand] = useState(5);
@@ -89,26 +88,21 @@ export default function App() {
   const [anonResult, setAnonResult] = useState<AnonymizeResponse | null>(null);
   const [scannerBusy, setScannerBusy] = useState(false);
 
-  // Batch state
   const [batchResult, setBatchResult] = useState<Awaited<ReturnType<typeof api.batchProcess>> | null>(null);
   const [batchBusy, setBatchBusy] = useState(false);
 
-  // Risk state
   const [riskResult, setRiskResult] = useState<Awaited<ReturnType<typeof api.riskAnalyze>> | null>(null);
   const [genAge, setGenAge] = useState(true);
   const [genLoc, setGenLoc] = useState(true);
   const [suppressRare, setSuppressRare] = useState(true);
 
-  // Linkage state
   const [linkageThreshold, setLinkageThreshold] = useState(0.72);
   const [linkageResult, setLinkageResult] = useState<Awaited<ReturnType<typeof api.linkageAnalyze>> | null>(null);
 
-  // Fidelity state
   const [fidelityOrig, setFidelityOrig] = useState(SAMPLE_RECORDS.Hinglish);
   const [fidelitySan, setFidelitySan] = useState("");
   const [fidelityResult, setFidelityResult] = useState<Awaited<ReturnType<typeof api.evaluateFidelity>> | null>(null);
 
-  // Evaluation Lab state
   const [evalResult, setEvalResult] = useState<EvaluationResponse | null>(null);
   const [evalBusy, setEvalBusy] = useState(false);
 
@@ -252,16 +246,16 @@ export default function App() {
   ];
 
   return (
-    <div className="min-h-screen flex bg-[#0B111A] text-slate-100">
+    <div className="min-h-screen flex bg-[#F4F7FA] text-slate-900">
       {/* Sidebar */}
-      <aside className="w-64 shrink-0 border-r border-slate-800 bg-[#0F1623] flex flex-col">
-        <div className="px-5 py-5 border-b border-slate-800 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-teal-500/15 border border-teal-500/30 flex items-center justify-center text-teal-400">
+      <aside className="w-64 shrink-0 border-r border-slate-200 bg-white flex flex-col shadow-xs">
+        <div className="px-5 py-5 border-b border-slate-200 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-teal-600 flex items-center justify-center text-white shadow-xs">
             <ShieldIcon className="w-5 h-5" />
           </div>
           <div>
-            <div className="font-semibold text-sm tracking-tight text-white">MediShield</div>
-            <div className="text-[11px] text-slate-400">Healthcare Privacy Firewall</div>
+            <div className="font-bold text-sm tracking-tight text-slate-900">MediShield</div>
+            <div className="text-[11px] text-slate-500">Healthcare Privacy Firewall</div>
           </div>
         </div>
 
@@ -274,44 +268,44 @@ export default function App() {
                 onClick={() => setTab(item.id)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors duration-150 text-left ${
                   active
-                    ? "bg-teal-500/15 text-teal-300 border border-teal-500/30 font-medium"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent"
+                    ? "bg-teal-50 text-teal-800 border border-teal-200 font-semibold"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-transparent"
                 }`}
               >
-                {item.icon}
+                <span className={active ? "text-teal-600" : "text-slate-400"}>{item.icon}</span>
                 <span>{item.label}</span>
               </button>
             );
           })}
         </nav>
 
-        <div className="p-4 border-t border-slate-800 text-xs space-y-1.5">
+        <div className="p-4 border-t border-slate-200 bg-slate-50/70 text-xs space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-slate-400">Engine</span>
-            <span className="font-mono text-emerald-400">
+            <span className="text-slate-500">Engine</span>
+            <span className="font-mono font-semibold text-emerald-700">
               {health?.offline_mode ? "OFFLINE" : "CONNECTING"}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-slate-400">LLM Inference</span>
-            <span className="font-mono text-teal-400">DISABLED</span>
+            <span className="text-slate-500">LLM Inference</span>
+            <span className="font-mono font-semibold text-teal-700">DISABLED</span>
           </div>
         </div>
       </aside>
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 border-b border-slate-800 bg-[#0F1623] px-6 flex items-center justify-between">
-          <div className="text-sm font-medium text-slate-200">
+        <header className="h-14 border-b border-slate-200 bg-white px-6 flex items-center justify-between">
+          <div className="text-sm font-semibold text-slate-800">
             {navItems.find((n) => n.id === tab)?.label}
           </div>
-          <div className="flex items-center gap-4 text-xs">
-            <span className="px-2.5 py-1 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-mono">
+          <div className="flex items-center gap-3 text-xs">
+            <span className="px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono font-medium">
               Zero-LLM · CPU Local
             </span>
             <button
               onClick={refreshMetrics}
-              className="px-3 py-1 rounded border border-slate-700 hover:border-slate-500 text-slate-300 transition-colors"
+              className="px-3 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium transition-colors"
             >
               Refresh Metrics
             </button>
@@ -319,7 +313,7 @@ export default function App() {
         </header>
 
         {error && (
-          <div className="mx-6 mt-4 px-4 py-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm">
+          <div className="mx-6 mt-4 px-4 py-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-sm">
             {error}
           </div>
         )}
@@ -345,39 +339,39 @@ export default function App() {
                   },
                   { label: "Audit Events", value: metrics?.recent_activity.length ?? 0 },
                 ].map((stat) => (
-                  <div key={stat.label} className="rounded-lg border border-slate-800 bg-[#111827] p-4">
-                    <div className="text-xs text-slate-400">{stat.label}</div>
-                    <div className="mt-1.5 text-2xl font-semibold font-mono text-white">{stat.value}</div>
+                  <div key={stat.label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+                    <div className="text-xs font-medium text-slate-500">{stat.label}</div>
+                    <div className="mt-1.5 text-2xl font-bold font-mono text-slate-900">{stat.value}</div>
                   </div>
                 ))}
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="rounded-lg border border-slate-800 bg-[#111827] p-5">
-                  <h3 className="text-sm font-semibold text-slate-200 mb-4">PII Category Distribution</h3>
+                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+                  <h3 className="text-sm font-semibold text-slate-800 mb-4">PII Category Distribution</h3>
                   {categoryData.length === 0 ? (
-                    <div className="h-56 flex items-center justify-center text-sm text-slate-500">
+                    <div className="h-56 flex items-center justify-center text-sm text-slate-400">
                       Run a scan, anonymization, or batch job to populate real category counts.
                     </div>
                   ) : (
                     <div className="h-56">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={categoryData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" />
-                          <XAxis dataKey="name" stroke="#94A3B8" fontSize={11} />
-                          <YAxis stroke="#94A3B8" fontSize={11} />
-                          <Tooltip contentStyle={{ backgroundColor: "#0F1623", borderColor: "#334155" }} />
-                          <Bar dataKey="value" fill="#14B8A6" radius={[4, 4, 0, 0]} />
+                          <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                          <XAxis dataKey="name" stroke="#64748B" fontSize={11} />
+                          <YAxis stroke="#64748B" fontSize={11} />
+                          <Tooltip contentStyle={{ backgroundColor: "#FFFFFF", borderColor: "#CBD5E1", color: "#0F172A" }} />
+                          <Bar dataKey="value" fill="#0D9488" radius={[4, 4, 0, 0]} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
                   )}
                 </div>
 
-                <div className="rounded-lg border border-slate-800 bg-[#111827] p-5">
-                  <h3 className="text-sm font-semibold text-slate-200 mb-4">Language Distribution</h3>
+                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+                  <h3 className="text-sm font-semibold text-slate-800 mb-4">Language Distribution</h3>
                   {langData.length === 0 ? (
-                    <div className="h-56 flex items-center justify-center text-sm text-slate-500">
+                    <div className="h-56 flex items-center justify-center text-sm text-slate-400">
                       No processed records yet.
                     </div>
                   ) : (
@@ -389,7 +383,7 @@ export default function App() {
                               <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                             ))}
                           </Pie>
-                          <Tooltip contentStyle={{ backgroundColor: "#0F1623", borderColor: "#334155" }} />
+                          <Tooltip contentStyle={{ backgroundColor: "#FFFFFF", borderColor: "#CBD5E1", color: "#0F172A" }} />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
@@ -408,27 +402,27 @@ export default function App() {
                     <button
                       key={label}
                       onClick={() => setInputText(text)}
-                      className="px-3 py-1.5 rounded-md text-xs border border-slate-700 bg-[#111827] hover:border-teal-500/50 text-slate-300"
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:border-teal-400 text-slate-700 shadow-xs"
                     >
                       Load {label} Sample
                     </button>
                   ))}
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono px-2.5 py-1 rounded bg-slate-800 text-teal-300">
+                  <span className="text-xs font-mono px-2.5 py-1 rounded-md bg-teal-50 border border-teal-200 text-teal-800">
                     Lang: {scanLang}
                   </span>
                   <button
                     onClick={handleScan}
                     disabled={scannerBusy}
-                    className="px-3.5 py-1.5 rounded-md text-xs font-medium border border-slate-600 hover:border-slate-400 text-slate-200"
+                    className="px-3.5 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
                   >
                     Scan PII
                   </button>
                   <button
                     onClick={handleAnonymize}
                     disabled={scannerBusy}
-                    className="px-4 py-1.5 rounded-md text-xs font-semibold bg-teal-500 hover:bg-teal-400 text-slate-950"
+                    className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-xs"
                   >
                     {scannerBusy ? "Processing..." : "Anonymize"}
                   </button>
@@ -437,33 +431,35 @@ export default function App() {
 
               {/* Split Screen */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <div className="rounded-lg border border-slate-800 bg-[#111827] p-4 space-y-3">
+                <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3 shadow-xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                       Original Record (Editable + Highlighted)
                     </span>
-                    <span className="text-xs font-mono text-amber-300">{scanEntities.length} entities</span>
+                    <span className="text-xs font-mono font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                      {scanEntities.length} entities
+                    </span>
                   </div>
                   <textarea
                     rows={5}
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
-                    className="w-full rounded-md bg-[#0B111A] border border-slate-800 p-3 text-sm font-mono text-slate-200 focus:outline-none focus:border-teal-500"
+                    className="w-full rounded-lg bg-slate-50 border border-slate-200 p-3 text-sm font-mono text-slate-800 focus:outline-none focus:border-teal-500"
                   />
-                  <div className="rounded-md bg-[#0B111A] border border-slate-800 p-3 text-sm leading-relaxed">
+                  <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-sm leading-relaxed text-slate-800">
                     <HighlightedText text={inputText} entities={scanEntities} />
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-slate-800 bg-[#111827] p-4 space-y-3">
+                <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3 shadow-xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                       Sanitized Output
                     </span>
                     <div className="flex gap-2">
                       <button
                         onClick={() => anonResult && navigator.clipboard.writeText(anonResult.sanitized_text)}
-                        className="px-2.5 py-1 rounded text-xs border border-slate-700 hover:border-slate-500 text-slate-300"
+                        className="px-2.5 py-1 rounded-md text-xs font-medium border border-slate-200 hover:bg-slate-50 text-slate-700"
                       >
                         Copy
                       </button>
@@ -477,33 +473,33 @@ export default function App() {
                           a.download = "sanitized_record.txt";
                           a.click();
                         }}
-                        className="px-2.5 py-1 rounded text-xs border border-teal-500/40 text-teal-300 hover:bg-teal-500/10"
+                        className="px-2.5 py-1 rounded-md text-xs font-medium border border-teal-200 bg-teal-50 text-teal-800 hover:bg-teal-100"
                       >
                         Export
                       </button>
                     </div>
                   </div>
-                  <div className="min-h-[160px] rounded-md bg-[#0B111A] border border-slate-800 p-3 text-sm font-mono text-emerald-300 whitespace-pre-wrap">
+                  <div className="min-h-[160px] rounded-lg bg-emerald-50/50 border border-emerald-200 p-3 text-sm font-mono text-emerald-900 whitespace-pre-wrap">
                     {anonResult ? anonResult.sanitized_text : "Click 'Anonymize' to generate privacy-safe output."}
                   </div>
 
                   {anonResult && (
                     <div className="grid grid-cols-3 gap-3 text-xs">
-                      <div className="rounded bg-[#0B111A] border border-slate-800 p-2.5">
-                        <div className="text-slate-400">Risk Before</div>
-                        <div className="font-mono text-rose-400 text-sm mt-0.5">
+                      <div className="rounded-lg bg-rose-50 border border-rose-200 p-2.5">
+                        <div className="text-rose-700 font-medium">Risk Before</div>
+                        <div className="font-mono font-bold text-rose-900 text-sm mt-0.5">
                           {String(anonResult.risk_before.reidentification_risk_score)} ({String(anonResult.risk_before.risk_level)})
                         </div>
                       </div>
-                      <div className="rounded bg-[#0B111A] border border-slate-800 p-2.5">
-                        <div className="text-slate-400">Risk After</div>
-                        <div className="font-mono text-emerald-400 text-sm mt-0.5">
+                      <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-2.5">
+                        <div className="text-emerald-700 font-medium">Risk After</div>
+                        <div className="font-mono font-bold text-emerald-900 text-sm mt-0.5">
                           {String(anonResult.risk_after.reidentification_risk_score)} ({String(anonResult.risk_after.risk_level)})
                         </div>
                       </div>
-                      <div className="rounded bg-[#0B111A] border border-slate-800 p-2.5">
-                        <div className="text-slate-400">Medical Fidelity</div>
-                        <div className="font-mono text-teal-300 text-sm mt-0.5">
+                      <div className="rounded-lg bg-teal-50 border border-teal-200 p-2.5">
+                        <div className="text-teal-700 font-medium">Medical Fidelity</div>
+                        <div className="font-mono font-bold text-teal-900 text-sm mt-0.5">
                           {(anonResult.fidelity.preservation_score * 100).toFixed(0)}% ({anonResult.fidelity.preserved_items.length}/{anonResult.fidelity.total_clinical_items})
                         </div>
                       </div>
@@ -513,12 +509,12 @@ export default function App() {
               </div>
 
               {/* Detected Entities Table */}
-              <div className="rounded-lg border border-slate-800 bg-[#111827] overflow-hidden">
-                <div className="px-4 py-3 border-b border-slate-800 text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-xs">
+                <div className="px-4 py-3 border-b border-slate-200 text-xs font-semibold uppercase tracking-wider text-slate-500">
                   Detected Entities
                 </div>
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-[#0B111A] text-slate-400">
+                  <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
                     <tr>
                       <th className="px-4 py-2.5">Type</th>
                       <th className="px-4 py-2.5">Matched Span</th>
@@ -527,21 +523,21 @@ export default function App() {
                       <th className="px-4 py-2.5">Confidence</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800">
+                  <tbody className="divide-y divide-slate-200">
                     {scanEntities.map((e, i) => (
-                      <tr key={i} className="hover:bg-slate-800/30">
-                        <td className="px-4 py-2 font-mono text-teal-300">{e.entity_type}</td>
-                        <td className="px-4 py-2 font-mono text-amber-200">{e.text}</td>
-                        <td className="px-4 py-2 font-mono text-slate-400">
+                      <tr key={i} className="hover:bg-slate-50">
+                        <td className="px-4 py-2 font-mono font-semibold text-teal-700">{e.entity_type}</td>
+                        <td className="px-4 py-2 font-mono text-amber-800">{e.text}</td>
+                        <td className="px-4 py-2 font-mono text-slate-500">
                           {e.start}..{e.end}
                         </td>
-                        <td className="px-4 py-2 text-slate-300">{e.method}</td>
-                        <td className="px-4 py-2 font-mono text-emerald-300">{(e.confidence * 100).toFixed(0)}%</td>
+                        <td className="px-4 py-2 text-slate-700">{e.method}</td>
+                        <td className="px-4 py-2 font-mono font-semibold text-emerald-700">{(e.confidence * 100).toFixed(0)}%</td>
                       </tr>
                     ))}
                     {scanEntities.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
+                        <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
                           No entities scanned yet.
                         </td>
                       </tr>
@@ -555,10 +551,10 @@ export default function App() {
           {/* BATCH PROCESSING */}
           {tab === "batch" && (
             <div className="space-y-5">
-              <div className="rounded-lg border border-dashed border-slate-700 bg-[#111827] p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
                 <div>
-                  <h3 className="text-sm font-semibold text-white">Upload Hospital Record File (CSV, JSON, TXT)</h3>
-                  <p className="text-xs text-slate-400 mt-1">
+                  <h3 className="text-sm font-semibold text-slate-900">Upload Hospital Record File (CSV, JSON, TXT)</h3>
+                  <p className="text-xs text-slate-500 mt-1">
                     Processed 100% offline in memory. Original identifiers are never logged.
                   </p>
                 </div>
@@ -570,35 +566,35 @@ export default function App() {
                     const f = e.target.files?.[0];
                     if (f) handleBatchUpload(f);
                   }}
-                  className="text-xs text-slate-300 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-teal-500 file:text-slate-950 file:font-semibold hover:file:bg-teal-400"
+                  className="text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-teal-600 file:text-white file:font-semibold hover:file:bg-teal-700"
                 />
               </div>
 
               {batchResult && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-                    <div className="rounded-lg border border-slate-800 bg-[#111827] p-4">
-                      <div className="text-slate-400">Records Processed</div>
-                      <div className="text-xl font-mono text-white mt-1">{batchResult.records_processed}</div>
+                    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+                      <div className="text-slate-500">Records Processed</div>
+                      <div className="text-xl font-mono font-bold text-slate-900 mt-1">{batchResult.records_processed}</div>
                     </div>
-                    <div className="rounded-lg border border-slate-800 bg-[#111827] p-4">
-                      <div className="text-slate-400">Identifiers Removed</div>
-                      <div className="text-xl font-mono text-teal-300 mt-1">{batchResult.entities_removed}</div>
+                    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+                      <div className="text-slate-500">Identifiers Removed</div>
+                      <div className="text-xl font-mono font-bold text-teal-700 mt-1">{batchResult.entities_removed}</div>
                     </div>
-                    <div className="rounded-lg border border-slate-800 bg-[#111827] p-4">
-                      <div className="text-slate-400">Avg Medical Fidelity</div>
-                      <div className="text-xl font-mono text-emerald-300 mt-1">
+                    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+                      <div className="text-slate-500">Avg Medical Fidelity</div>
+                      <div className="text-xl font-mono font-bold text-emerald-700 mt-1">
                         {(batchResult.avg_fidelity_score * 100).toFixed(1)}%
                       </div>
                     </div>
-                    <div className="rounded-lg border border-slate-800 bg-[#111827] p-4">
-                      <div className="text-slate-400">Latency</div>
-                      <div className="text-xl font-mono text-white mt-1">{batchResult.latency_ms} ms</div>
+                    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+                      <div className="text-slate-500">Latency</div>
+                      <div className="text-xl font-mono font-bold text-slate-900 mt-1">{batchResult.latency_ms} ms</div>
                     </div>
                   </div>
-                  <div className="rounded-lg border border-slate-800 bg-[#111827] p-4 space-y-3">
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3 shadow-xs">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold uppercase text-slate-400">Sanitized Output Preview</span>
+                      <span className="text-xs font-semibold uppercase text-slate-500">Sanitized Output Preview</span>
                       <button
                         onClick={() => {
                           const blob = new Blob([batchResult.sanitized_content], { type: "text/plain" });
@@ -608,12 +604,12 @@ export default function App() {
                           a.download = `sanitized_${batchResult.filename}`;
                           a.click();
                         }}
-                        className="px-3 py-1.5 rounded bg-teal-500 text-slate-950 text-xs font-semibold"
+                        className="px-3 py-1.5 rounded-lg bg-teal-600 text-white text-xs font-semibold hover:bg-teal-700"
                       >
                         Download Sanitized File
                       </button>
                     </div>
-                    <pre className="p-3 rounded bg-[#0B111A] border border-slate-800 text-xs font-mono text-emerald-300 overflow-x-auto max-h-80">
+                    <pre className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono text-emerald-900 overflow-x-auto max-h-80">
                       {batchResult.sanitized_content}
                     </pre>
                   </div>
@@ -625,8 +621,8 @@ export default function App() {
           {/* PRIVACY RISK ANALYSIS */}
           {tab === "risk" && (
             <div className="space-y-5">
-              <div className="rounded-lg border border-slate-800 bg-[#111827] p-5 flex flex-wrap items-center justify-between gap-4">
-                <div className="flex flex-wrap gap-4 text-xs">
+              <div className="rounded-xl border border-slate-200 bg-white p-5 flex flex-wrap items-center justify-between gap-4 shadow-xs">
+                <div className="flex flex-wrap gap-4 text-xs text-slate-700">
                   <label className="flex items-center gap-2">
                     <input type="checkbox" checked={genAge} onChange={(e) => setGenAge(e.target.checked)} />
                     5-Year Age Banding
@@ -642,7 +638,7 @@ export default function App() {
                 </div>
                 <button
                   onClick={handleRunRisk}
-                  className="px-4 py-2 rounded-md bg-teal-500 hover:bg-teal-400 text-slate-950 text-xs font-semibold"
+                  className="px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold"
                 >
                   Run k-Anonymity Risk Analysis
                 </button>
@@ -651,16 +647,16 @@ export default function App() {
               {riskResult && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="rounded-lg border border-slate-800 bg-[#111827] p-4 space-y-2 text-xs">
-                      <div className="font-semibold text-rose-300">Before Transformation</div>
-                      <pre className="font-mono text-slate-300">{JSON.stringify(riskResult.risk_before, null, 2)}</pre>
+                    <div className="rounded-xl border border-rose-200 bg-white p-4 space-y-2 text-xs shadow-xs">
+                      <div className="font-semibold text-rose-700">Before Transformation</div>
+                      <pre className="font-mono text-slate-800">{JSON.stringify(riskResult.risk_before, null, 2)}</pre>
                     </div>
-                    <div className="rounded-lg border border-slate-800 bg-[#111827] p-4 space-y-2 text-xs">
-                      <div className="font-semibold text-emerald-300">After Transformation</div>
-                      <pre className="font-mono text-slate-300">{JSON.stringify(riskResult.risk_after, null, 2)}</pre>
+                    <div className="rounded-xl border border-emerald-200 bg-white p-4 space-y-2 text-xs shadow-xs">
+                      <div className="font-semibold text-emerald-700">After Transformation</div>
+                      <pre className="font-mono text-slate-800">{JSON.stringify(riskResult.risk_after, null, 2)}</pre>
                     </div>
                   </div>
-                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-amber-200">
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
                     <strong>Heuristic Note:</strong> {riskResult.disclaimer}
                   </div>
                 </div>
@@ -671,9 +667,9 @@ export default function App() {
           {/* RECORD LINKAGE */}
           {tab === "linkage" && (
             <div className="space-y-5">
-              <div className="rounded-lg border border-slate-800 bg-[#111827] p-5 flex items-center justify-between">
+              <div className="rounded-xl border border-slate-200 bg-white p-5 flex items-center justify-between shadow-xs">
                 <div className="flex items-center gap-4 text-xs">
-                  <span className="text-slate-300">Similarity Threshold:</span>
+                  <span className="text-slate-700 font-medium">Similarity Threshold:</span>
                   <input
                     type="range"
                     min={0.5}
@@ -682,11 +678,11 @@ export default function App() {
                     value={linkageThreshold}
                     onChange={(e) => setLinkageThreshold(parseFloat(e.target.value))}
                   />
-                  <span className="font-mono text-teal-300">{linkageThreshold.toFixed(2)}</span>
+                  <span className="font-mono font-semibold text-teal-700">{linkageThreshold.toFixed(2)}</span>
                 </div>
                 <button
                   onClick={handleRunLinkage}
-                  className="px-4 py-2 rounded-md bg-teal-500 hover:bg-teal-400 text-slate-950 text-xs font-semibold"
+                  className="px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold"
                 >
                   Analyze Cross-Hospital Linkage
                 </button>
@@ -694,33 +690,33 @@ export default function App() {
 
               {linkageResult && (
                 <div className="space-y-4">
-                  <div className="rounded-lg border border-slate-800 bg-[#111827] p-4">
-                    <h4 className="text-xs font-semibold uppercase text-slate-400 mb-3">
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+                    <h4 className="text-xs font-semibold uppercase text-slate-500 mb-3">
                       Pseudonymized Clusters ({linkageResult.clusters.length})
                     </h4>
                     <div className="space-y-2 text-xs">
                       {linkageResult.clusters.map((c) => (
-                        <div key={c.cluster_id} className="p-3 rounded bg-[#0B111A] border border-slate-800 flex flex-wrap justify-between gap-2">
-                          <span className="font-mono text-teal-300">{c.pseudonym}</span>
-                          <span className="font-mono text-slate-300">Records: {c.record_ids.join(", ")}</span>
-                          <span className="text-slate-400">Hospitals: {c.hospitals.join(", ")}</span>
-                          <span className="font-mono text-emerald-300">Confidence: {c.avg_confidence}</span>
+                        <div key={c.cluster_id} className="p-3 rounded-lg bg-slate-50 border border-slate-200 flex flex-wrap justify-between gap-2">
+                          <span className="font-mono font-semibold text-teal-700">{c.pseudonym}</span>
+                          <span className="font-mono text-slate-700">Records: {c.record_ids.join(", ")}</span>
+                          <span className="text-slate-600">Hospitals: {c.hospitals.join(", ")}</span>
+                          <span className="font-mono font-semibold text-emerald-700">Confidence: {c.avg_confidence}</span>
                         </div>
                       ))}
                     </div>
                   </div>
-                  <div className="rounded-lg border border-slate-800 bg-[#111827] p-4">
-                    <h4 className="text-xs font-semibold uppercase text-slate-400 mb-3">
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+                    <h4 className="text-xs font-semibold uppercase text-slate-500 mb-3">
                       Flagged Pairs ({linkageResult.flagged_pairs.length})
                     </h4>
                     <div className="space-y-2 text-xs">
                       {linkageResult.flagged_pairs.map((p, i) => (
-                        <div key={i} className="p-3 rounded bg-[#0B111A] border border-slate-800 flex justify-between">
-                          <span className="font-mono">
+                        <div key={i} className="p-3 rounded-lg bg-slate-50 border border-slate-200 flex justify-between">
+                          <span className="font-mono text-slate-800">
                             {p.record_a} ({p.hospital_a}) ↔ {p.record_b} ({p.hospital_b})
                           </span>
-                          <span className="text-slate-400">{p.reasons.join(" · ")}</span>
-                          <span className="font-mono text-amber-300">Score: {p.score}</span>
+                          <span className="text-slate-600">{p.reasons.join(" · ")}</span>
+                          <span className="font-mono font-semibold text-amber-700">Score: {p.score}</span>
                         </div>
                       ))}
                     </div>
@@ -739,14 +735,14 @@ export default function App() {
                   value={fidelityOrig}
                   onChange={(e) => setFidelityOrig(e.target.value)}
                   placeholder="Original clinical text..."
-                  className="rounded-lg bg-[#111827] border border-slate-800 p-3 text-xs font-mono"
+                  className="rounded-xl bg-white border border-slate-200 p-3 text-xs font-mono text-slate-800 shadow-xs"
                 />
                 <textarea
                   rows={5}
                   value={fidelitySan}
                   onChange={(e) => setFidelitySan(e.target.value)}
                   placeholder="Sanitized text..."
-                  className="rounded-lg bg-[#111827] border border-slate-800 p-3 text-xs font-mono"
+                  className="rounded-xl bg-white border border-slate-200 p-3 text-xs font-mono text-slate-800 shadow-xs"
                 />
               </div>
               <button
@@ -754,20 +750,20 @@ export default function App() {
                   const res = await api.evaluateFidelity(fidelityOrig, fidelitySan || fidelityOrig);
                   setFidelityResult(res);
                 }}
-                className="px-4 py-2 rounded-md bg-teal-500 text-slate-950 text-xs font-semibold"
+                className="px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold"
               >
                 Evaluate Medical Fidelity
               </button>
               {fidelityResult && (
-                <div className="rounded-lg border border-slate-800 bg-[#111827] p-4 text-xs space-y-2">
-                  <div className="font-mono text-lg text-emerald-300">
+                <div className="rounded-xl border border-slate-200 bg-white p-4 text-xs space-y-2 shadow-xs">
+                  <div className="font-mono font-bold text-lg text-emerald-700">
                     Preservation Score: {(fidelityResult.preservation_score * 100).toFixed(1)}%
                   </div>
-                  <div className="text-slate-400">
+                  <div className="text-slate-700">
                     Preserved: {fidelityResult.preserved_items.map((x) => x.value).join(", ") || "None"}
                   </div>
                   {fidelityResult.lost_items.length > 0 && (
-                    <div className="text-rose-400">
+                    <div className="text-rose-700">
                       Lost: {fidelityResult.lost_items.map((x) => x.value).join(", ")}
                     </div>
                   )}
@@ -778,12 +774,12 @@ export default function App() {
 
           {/* AUDIT LOGS */}
           {tab === "audit" && (
-            <div className="rounded-lg border border-slate-800 bg-[#111827] overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-800 text-xs text-slate-400">
+            <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-xs">
+              <div className="px-4 py-3 border-b border-slate-200 text-xs font-medium text-slate-500">
                 Sanitized Metadata Only (Zero raw PII stored)
               </div>
               <table className="w-full text-left text-xs">
-                <thead className="bg-[#0B111A] text-slate-400">
+                <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
                   <tr>
                     <th className="px-4 py-2.5">Timestamp</th>
                     <th className="px-4 py-2.5">Operation</th>
@@ -794,16 +790,16 @@ export default function App() {
                     <th className="px-4 py-2.5">Latency</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800 font-mono">
+                <tbody className="divide-y divide-slate-200 font-mono">
                   {(metrics?.recent_activity || []).map((r) => (
-                    <tr key={r.id}>
-                      <td className="px-4 py-2 text-slate-400">{r.created_at.slice(0, 19)}</td>
-                      <td className="px-4 py-2 text-teal-300">{r.operation}</td>
-                      <td className="px-4 py-2">{r.language}</td>
-                      <td className="px-4 py-2">{r.entities_detected}</td>
-                      <td className="px-4 py-2">{r.entities_removed}</td>
-                      <td className="px-4 py-2 text-emerald-300">{(r.fidelity_score * 100).toFixed(0)}%</td>
-                      <td className="px-4 py-2">{r.latency_ms} ms</td>
+                    <tr key={r.id} className="hover:bg-slate-50">
+                      <td className="px-4 py-2 text-slate-500">{r.created_at.slice(0, 19)}</td>
+                      <td className="px-4 py-2 font-semibold text-teal-700">{r.operation}</td>
+                      <td className="px-4 py-2 text-slate-700">{r.language}</td>
+                      <td className="px-4 py-2 text-slate-800">{r.entities_detected}</td>
+                      <td className="px-4 py-2 text-slate-800">{r.entities_removed}</td>
+                      <td className="px-4 py-2 font-semibold text-emerald-700">{(r.fidelity_score * 100).toFixed(0)}%</td>
+                      <td className="px-4 py-2 text-slate-700">{r.latency_ms} ms</td>
                     </tr>
                   ))}
                 </tbody>
@@ -815,13 +811,13 @@ export default function App() {
           {tab === "evaluation" && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
-                <div className="text-xs text-slate-400">
+                <div className="text-xs text-slate-600">
                   Runs real offline English, Hindi & Hinglish test suite with edge-case disambiguation.
                 </div>
                 <button
                   onClick={handleRunEvaluation}
                   disabled={evalBusy}
-                  className="px-4 py-2 rounded-md bg-teal-500 hover:bg-teal-400 text-slate-950 text-xs font-semibold"
+                  className="px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold"
                 >
                   {evalBusy ? "Running..." : "Run Evaluation Suite"}
                 </button>
@@ -839,20 +835,20 @@ export default function App() {
                       { k: "Linkage Accuracy", v: `${(evalResult.record_linkage_accuracy * 100).toFixed(1)}%` },
                       { k: "Avg Latency", v: `${evalResult.avg_latency_ms} ms` },
                     ].map((m) => (
-                      <div key={m.k} className="rounded-lg border border-slate-800 bg-[#111827] p-4">
-                        <div className="text-xs text-slate-400">{m.k}</div>
-                        <div className="text-xl font-mono text-emerald-300 mt-1">{m.v}</div>
+                      <div key={m.k} className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+                        <div className="text-xs text-slate-500">{m.k}</div>
+                        <div className="text-xl font-mono font-bold text-emerald-700 mt-1">{m.v}</div>
                       </div>
                     ))}
                   </div>
                   <div className="space-y-3">
                     {evalResult.cases.map((c) => (
-                      <div key={c.id} className="rounded-lg border border-slate-800 bg-[#111827] p-4 text-xs space-y-2">
+                      <div key={c.id} className="rounded-xl border border-slate-200 bg-white p-4 text-xs space-y-2 shadow-xs">
                         <div className="flex justify-between font-mono">
-                          <span className="text-teal-300">{c.id} ({c.detected_language})</span>
-                          <span>Matched {c.matched}/{c.expected_count} · Fidelity {(c.medical_preservation * 100).toFixed(0)}% · {c.latency_ms} ms</span>
+                          <span className="font-semibold text-teal-700">{c.id} ({c.detected_language})</span>
+                          <span className="text-slate-600">Matched {c.matched}/{c.expected_count} · Fidelity {(c.medical_preservation * 100).toFixed(0)}% · {c.latency_ms} ms</span>
                         </div>
-                        <div className="font-mono text-slate-300 bg-[#0B111A] p-2.5 rounded border border-slate-800">
+                        <div className="font-mono text-slate-800 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
                           {c.sanitized_preview}
                         </div>
                       </div>
@@ -865,14 +861,14 @@ export default function App() {
 
           {/* SETTINGS */}
           {tab === "settings" && (
-            <div className="rounded-lg border border-slate-800 bg-[#111827] p-5 space-y-4 max-w-xl text-xs">
-              <div className="font-semibold text-sm text-white">Default Anonymization Policy</div>
+            <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4 max-w-xl text-xs shadow-xs">
+              <div className="font-semibold text-sm text-slate-900">Default Anonymization Policy</div>
               <div className="space-y-1.5">
-                <label className="text-slate-400 block">Default Transformation Mode</label>
+                <label className="text-slate-600 block font-medium">Default Transformation Mode</label>
                 <select
                   value={policyMode}
                   onChange={(e) => setPolicyMode(e.target.value)}
-                  className="w-full rounded bg-[#0B111A] border border-slate-700 px-3 py-2 text-slate-200"
+                  className="w-full rounded-lg bg-slate-50 border border-slate-300 px-3 py-2 text-slate-800"
                 >
                   <option value="pseudonymization">Pseudonymization (HMAC-SHA256)</option>
                   <option value="redaction">Redaction ([ENTITY_REDACTED])</option>
@@ -882,7 +878,7 @@ export default function App() {
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-slate-400 block">Age Band Width (Years): {ageBand}</label>
+                <label className="text-slate-600 block font-medium">Age Band Width (Years): {ageBand}</label>
                 <input
                   type="range"
                   min={2}
