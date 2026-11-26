@@ -7,6 +7,7 @@ import secrets
 from typing import Dict, List, Tuple
 
 from app.models.schemas import DetectedEntity, PolicyConfig, TransformMode
+from app.services.pii_detection.detector import normalize_text
 
 
 class AnonymizerEngine:
@@ -70,6 +71,7 @@ class AnonymizerEngine:
     def anonymize(
         self, text: str, entities: List[DetectedEntity], policy: PolicyConfig
     ) -> Tuple[str, int]:
+        text = normalize_text(text)
         if not entities:
             return text, 0
 

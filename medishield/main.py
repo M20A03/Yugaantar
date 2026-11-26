@@ -120,13 +120,11 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
                 counts["files_quarantined"] += 1
                 report_files.append({"input_sha256": file_hash, "output": None, "status": "quarantined", "reason": "invalid json"})
                 continue
-            counts["records_processed"] += 1
-            _, ents = detector.scan(raw_text)
-            counts["identifiers_detected"] += len(ents)
 
             def _clean(x: Any) -> Any:
                 if isinstance(x, str):
                     _, e_list = detector.scan(x)
+                    counts["identifiers_detected"] += len(e_list)
                     s_val, _ = anonymizer.anonymize(x, e_list, policy)
                     return s_val
                 if isinstance(x, list):
@@ -135,17 +133,32 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
                     return {k: _clean(v) for k, v in x.items()}
                 return x
 
-            dst_path.write_text(json.dumps(_clean(obj), ensure_ascii=False, indent=2), encoding="utf-8")
-            psn = next((anonymizer.pseudonym_for("PERSON", e.text).strip("[]") for e in ents if e.entity_type == "PERSON"), None)
-            records_jsonl_lines.append(json.dumps({"file": rel_out, "loc": "/", "patient": psn}))
+            cleaned_obj = _clean(obj)
+            dst_path.write_text(json.dumps(cleaned_obj, ensure_ascii=False, indent=2), encoding="utf-8")
+
+            if isinstance(obj, list):
+                for idx, item in enumerate(obj):
+                    counts["records_processed"] += 1
+                    _, item_ents = detector.scan(json.dumps(item, ensure_ascii=False))
+                    psn = next((anonymizer.pseudonym_for("PERSON", e.text).strip("[]") for e in item_ents if e.entity_type == "PERSON"), None)
+                    records_jsonl_lines.append(json.dumps({"file": rel_out, "loc": f"/{idx}", "patient": psn}))
+            else:
+                counts["records_processed"] += 1
+                _, ents = detector.scan(raw_text)
+                psn = next((anonymizer.pseudonym_for("PERSON", e.text).strip("[]") for e in ents if e.entity_type == "PERSON"), None)
+                records_jsonl_lines.append(json.dumps({"file": rel_out, "loc": "/", "patient": psn}))
         else:
-            counts["records_processed"] += 1
-            _, ents = detector.scan(raw_text)
-            counts["identifiers_detected"] += len(ents)
-            san_txt, _ = anonymizer.anonymize(raw_text, ents, policy)
-            dst_path.write_text(san_txt, encoding="utf-8")
-            psn = next((anonymizer.pseudonym_for("PERSON", e.text).strip("[]") for e in ents if e.entity_type == "PERSON"), None)
-            records_jsonl_lines.append(json.dumps({"file": rel_out, "loc": "doc", "patient": psn}))
+            lines = [ln for ln in raw_text.splitlines() if ln.strip()]
+            san_lines: List[str] = []
+            for idx, line in enumerate(lines):
+                counts["records_processed"] += 1
+                _, ents = detector.scan(line)
+                counts["identifiers_detected"] += len(ents)
+                san_txt, _ = anonymizer.anonymize(line, ents, policy)
+                san_lines.append(san_txt)
+                psn = next((anonymizer.pseudonym_for("PERSON", e.text).strip("[]") for e in ents if e.entity_type == "PERSON"), None)
+                records_jsonl_lines.append(json.dumps({"file": rel_out, "loc": f"line:{idx}" if len(lines) > 1 else "doc", "patient": psn}))
+            dst_path.write_text("\n".join(san_lines) + ("\n" if san_lines else ""), encoding="utf-8")
 
         counts["files_sanitized"] += 1
         report_files.append({"input_sha256": file_hash, "output": rel_out, "status": "sanitized"})

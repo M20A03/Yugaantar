@@ -77,7 +77,9 @@ REGEX_RULES: List[Tuple[str, re.Pattern, float]] = [
     ("HOSPITAL_ID", re.compile(r"\b(?:MRN|UHID|REG|PAT|OPD|IPD)[\-_:/]?\d{4,10}\b", re.IGNORECASE), 0.96),
     (
         "PHONE",
-        re.compile(r"(?<!\d)(?:\+91[\s\-]?|0)?[6-9]\d{4}[\s\-]?\d{5}(?!\d)"),
+        re.compile(
+            r"(?<!\d)(?:(?:\+91[\s\-]?|0)?[6-9]\d{4}[\s\-]?\d{5}|\+\d{1,3}[\s\-]?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{4})(?!\d)"
+        ),
         0.96,
     ),
     (
@@ -185,18 +187,19 @@ class MultilingualPIIDetector:
                     )
                 )
 
-        # 2. Age & Address contextual patterns
+        # 2. Age & Address contextual patterns (English, Hindi, Hinglish + parenthetical yrs)
         age_re = re.compile(
-            r"\b(?:aged|age|उम्र)\s*[:\-]?\s*(\d{1,3})\s*(?:years?|yrs?|y/o|saal|साल)?\b",
+            r"(?:\b(?:aged|age|umra|umar|उम्र)\s*[:\-]?\s*(\d{1,3})\s*(?:years?|yrs?|y/o|saal|साल)?\b|\((\d{1,3})\s*(?:years?|yrs?|y/o)\))",
             re.IGNORECASE,
         )
         for m in age_re.finditer(norm):
+            grp = 1 if m.group(1) else 2
             candidates.append(
                 DetectedEntity(
                     entity_type="AGE",
-                    text=m.group(1),
-                    start=m.start(1),
-                    end=m.end(1),
+                    text=m.group(grp),
+                    start=m.start(grp),
+                    end=m.end(grp),
                     method="context_rule",
                     confidence=0.92,
                     language=language,
@@ -204,7 +207,7 @@ class MultilingualPIIDetector:
             )
 
         addr_re = re.compile(
-            r"\b(?:residing at|resident of|address|पता|निवासी)\s*[:\-]?\s*([A-Za-z0-9\u0900-\u097F,.\-\s]{4,70}?)(?=[.\n]|$|\b(?:Contact|Phone|Mob|Mobile|PIN|diagnosed|Patient|Pt)\b)",
+            r"\b(?:residing at|resident of|address|pata|पता|निवासी)\s*[:\-]?\s*([A-Za-z0-9\u0900-\u097F,.\-\s]{4,70}?)(?=[.\n]|$|\b(?:Contact|Phone|Mob|Mobile|PIN|diagnosed|Patient|Pt|Unko)\b)",
             re.IGNORECASE,
         )
         for m in addr_re.finditer(norm):
@@ -242,9 +245,9 @@ class MultilingualPIIDetector:
     def _detect_names(
         self, text: str, language: str, candidates: List[DetectedEntity]
     ) -> None:
-        # Pattern A: Explicit patient prefix ("Patient Rahul Sharma", "Name: मोहम्मद आरिफ")
+        # Pattern A: Explicit patient prefix (incl. common typos like Pateint & OPD/IPD Note)
         pat_name_re = re.compile(
-            r"\b(?:Patient|Pt\.?|Name|Mareez|Rogi|Mr\.?|Mrs\.?|Ms\.?|Shri|Smt\.?|नाम|रोगी|मरीज़)\s*[:\-]?\s*([A-Z\u0900-\u097F][a-zA-Z\u0900-\u097F\.]{1,25}(?:\s+[A-Z\u0900-\u097F][a-zA-Z\u0900-\u097F\.]{1,25}){0,2})",
+            r"\b(?:Patient|Pateint|Patinet|Pt\.?|Name|Mareez|Rogi|OPD\s+Note|IPD\s+Note|Mr\.?|Mrs\.?|Ms\.?|Shri|Smt\.?|नाम|रोगी|मरीज़)\s*[:\-]?\s*([A-Z\u0900-\u097F][a-zA-Z\u0900-\u097F\.]{1,25}(?:\s+[A-Z\u0900-\u097F][a-zA-Z\u0900-\u097F\.]{1,25}){0,2})",
         )
         for m in pat_name_re.finditer(text):
             name_val = m.group(1).strip(" .,:-")
@@ -259,6 +262,25 @@ class MultilingualPIIDetector:
                         end=m.start(1) + len(name_val),
                         method="hybrid_nlp_ml",
                         confidence=round(min(0.99, 0.78 + 0.2 * ml_score), 2),
+                        language=language,
+                    )
+                )
+
+        # Pattern A2: Unstructured clinical subject ("Ananya Kulkarni presented with / visited / complained")
+        unstruct_name_re = re.compile(
+            r"(?:^|[.\n]\s*)([A-Z][a-z]{1,20}\s+[A-Z][a-z]{1,20})\s+(?:presented|visited|admitted|complained|reported|tested)\b"
+        )
+        for m in unstruct_name_re.finditer(text):
+            name_val = m.group(1).strip()
+            if self._valid_person_name(text, m.start(1), name_val):
+                candidates.append(
+                    DetectedEntity(
+                        entity_type="PERSON",
+                        text=name_val,
+                        start=m.start(1),
+                        end=m.start(1) + len(name_val),
+                        method="unstructured_ctx",
+                        confidence=0.88,
                         language=language,
                     )
                 )

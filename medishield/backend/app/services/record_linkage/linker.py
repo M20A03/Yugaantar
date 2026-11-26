@@ -137,10 +137,13 @@ class RecordLinkageEngine:
                 diff = abs(ra.age - rb.age)
                 age_sim = 1.0 if diff == 0 else (0.7 if diff <= 2 else 0.0)
                 field_scores["age"] = age_sim
-                weight_sum += 0.10
-                score_sum += 0.10 * age_sim
+                weight_sum += 0.15
+                score_sum += 0.15 * age_sim
                 if age_sim > 0:
                     reasons.append(f"Age proximity (diff={diff})")
+                elif diff > 5:
+                    # Hard negative guard: large age gap rules out same-person linkage
+                    continue
 
             if ra.gender and rb.gender:
                 g_sim = 1.0 if ra.gender.strip().lower()[:1] == rb.gender.strip().lower()[:1] else 0.0
@@ -149,9 +152,14 @@ class RecordLinkageEngine:
                 score_sum += 0.10 * g_sim
                 if g_sim == 0.0:
                     # Strong negative evidence against linking
-                    score_sum *= 0.5
+                    score_sum *= 0.4
 
             if weight_sum == 0.0:
+                continue
+
+            # Require either strong phone match or at least 2 agreeing signals (prevent name-only false merges)
+            agreeing = sum(1 for v in field_scores.values() if v >= 0.7)
+            if agreeing < 2 and field_scores.get("phone", 0.0) < 0.9:
                 continue
 
             final_score = round(score_sum / weight_sum, 3)
