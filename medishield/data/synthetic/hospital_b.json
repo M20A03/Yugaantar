@@ -1,0 +1,20 @@
+[
+  {
+    "record_id": "R201",
+    "hospital": "HOSP_B",
+    "name": "मोहम्मद आरिफ",
+    "phone": "+91-9811223344",
+    "age": 44,
+    "gender": "M",
+    "note": "रोगी: मोहम्मद आरिफ, UHID-884210. Viral Fever with BP 150/90 mmHg. Paracetamol 500 mg."
+  },
+  {
+    "record_id": "R202",
+    "hospital": "HOSP_B",
+    "name": "मीरा देवी",
+    "phone": "9123456789",
+    "age": 47,
+    "gender": "F",
+    "note": "रोगी: मीरा देवी, उम्र 47 साल, पता: रामपुर गाँव, PIN 226001. C/O राजन कुमार. Dengue fever."
+  }
+]

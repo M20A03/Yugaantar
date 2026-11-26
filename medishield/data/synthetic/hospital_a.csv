@@ -1,0 +1,4 @@
+record_id,hospital,name,phone,age,gender,address,diagnosis,notes
+R101,HOSP_A,Rahul Sharma,9876543210,45,M,"MG Road, Bengaluru",Type 2 Diabetes,"Patient Rahul Sharma prescribed Metformin 500 mg BD. BP 130/85 mmHg."
+R102,HOSP_A,Sunita Yadav,+91 9988776655,38,F,"Gomti Nagar, Lucknow",Hypertension,"Pt. Sunita Yadav C/O fever and headache. Dr. Rajesh Gupta advised Ramipril 5 mg OD."
+R103,HOSP_A,Mohammad Arif,9811223344,44,M,"Charminar, Hyderabad",Viral Fever,"Arif sahab ka BP 150/90 mmHg hai. Dolo 650 mg 1-0-1 prescribed."

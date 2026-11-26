@@ -1,0 +1,4 @@
+[submission]
+name = "medishield-yugaantar"
+setup = "pip install -r backend/requirements.txt"
+run = "python main.py --input {input} --output {output}"
