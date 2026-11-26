@@ -79,31 +79,89 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
         try:
             raw_text = src_path.read_text(encoding="utf-8", errors="strict")
         except UnicodeDecodeError:
-            raw_text = src_path.read_text(encoding="latin-1", errors="replace")
+            counts["files_quarantined"] += 1
+            counts["records_quarantined"] += 1
+            report_files.append(
+                {
+                    "input_sha256": file_hash,
+                    "output": None,
+                    "status": "quarantined",
+                    "reason": "invalid encoding",
+                }
+            )
+            continue
 
-        dst_path = sanitized_root / rel
-        # Metadata privacy: rename files if filename itself contains PII
-        _, fn_ents = detector.scan(rel.stem)
-        renamed = False
+        if not raw_text.strip():
+            counts["files_quarantined"] += 1
+            counts["records_quarantined"] += 1
+            report_files.append(
+                {
+                    "input_sha256": file_hash,
+                    "output": None,
+                    "status": "quarantined",
+                    "reason": "empty file",
+                }
+            )
+            continue
+
+        # Metadata privacy: sanitize directory segments and filename if they contain PII
+        safe_parts: List[str] = []
+        for part in rel.parent.parts:
+            _, p_ents = detector.scan(part.replace("_", " ").replace("-", " "))
+            if p_ents:
+                part_hash = hashlib.sha256(part.encode("utf-8")).hexdigest()[:8]
+                safe_parts.append(f"dir_{part_hash}")
+            else:
+                safe_parts.append(part)
+        safe_parent = Path(*safe_parts) if safe_parts else Path(".")
+
+        _, fn_ents = detector.scan(rel.stem.replace("_", " ").replace("-", " "))
         if fn_ents:
             safe_name = f"redacted_{file_hash[:8]}{ext}"
-            dst_path = sanitized_root / rel.parent / safe_name
-            rel_out = f"sanitized/{(rel.parent / safe_name).as_posix()}"
-            renamed = True
         else:
-            rel_out = f"sanitized/{rel.as_posix()}"
-        dst_path.parent.mkdir(parents=True, exist_ok=True)
+            safe_name = rel.name
+
+        dst_rel = safe_parent / safe_name if str(safe_parent) != "." else Path(safe_name)
+        dst_path = sanitized_root / dst_rel
+        rel_out = f"sanitized/{dst_rel.as_posix()}"
 
         if ext in {".csv", ".tsv"}:
             delim = "\t" if ext == ".tsv" else ","
-            rows = list(csv.DictReader(raw_text.splitlines(), delimiter=delim))
-            if not rows:
+            reader = csv.DictReader(raw_text.splitlines(), delimiter=delim)
+            rows = list(reader)
+            if (
+                not rows
+                or not reader.fieldnames
+                or any(fn is None for fn in reader.fieldnames)
+                or any(None in r for r in rows)
+            ):
                 counts["files_quarantined"] += 1
-                report_files.append({"input_sha256": file_hash, "output": None, "status": "quarantined", "reason": "empty table"})
+                counts["records_quarantined"] += 1
+                report_files.append({"input_sha256": file_hash, "output": None, "status": "quarantined", "reason": "malformed or empty table"})
                 continue
-            fieldnames = list(rows[0].keys())
+
+            raw_fieldnames = list(reader.fieldnames)
+            used_headers: set[str] = set()
+            header_map: Dict[str, str] = {}
+            for fn in raw_fieldnames:
+                _, h_ents = detector.scan(fn.replace("_", " ").replace("-", " "))
+                if h_ents:
+                    h_hash = hashlib.sha256(fn.encode("utf-8")).hexdigest()[:8]
+                    base_h = f"field_{h_hash}"
+                else:
+                    base_h = fn
+                cand = base_h
+                suffix = 2
+                while cand in used_headers:
+                    cand = f"{base_h}_{suffix}"
+                    suffix += 1
+                used_headers.add(cand)
+                header_map[fn] = cand
+
+            dst_path.parent.mkdir(parents=True, exist_ok=True)
+            san_fieldnames = [header_map[fn] for fn in raw_fieldnames]
             with dst_path.open("w", encoding="utf-8", newline="") as f_out:
-                writer = csv.DictWriter(f_out, fieldnames=fieldnames, delimiter=delim)
+                writer = csv.DictWriter(f_out, fieldnames=san_fieldnames, delimiter=delim)
                 writer.writeheader()
                 for row_idx, row in enumerate(rows):
                     counts["records_processed"] += 1
@@ -117,7 +175,7 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
                         for e in ents:
                             if e.entity_type == "PERSON" and patient_psn is None:
                                 patient_psn = anonymizer.pseudonym_for("PERSON", e.text).strip("[]")
-                        san_row[k] = san_val
+                        san_row[header_map[k]] = san_val
                     writer.writerow(san_row)
                     records_jsonl_lines.append(
                         json.dumps({"file": rel_out, "loc": f"row:{row_idx}", "patient": patient_psn})
@@ -127,15 +185,30 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
                 obj = json.loads(raw_text)
             except json.JSONDecodeError:
                 counts["files_quarantined"] += 1
+                counts["records_quarantined"] += 1
                 report_files.append({"input_sha256": file_hash, "output": None, "status": "quarantined", "reason": "invalid json"})
                 continue
 
-            def _clean_key(key: str) -> str:
-                _, k_ents = detector.scan(key)
-                if not k_ents:
-                    return key
-                sk, _ = anonymizer.anonymize(key, k_ents, policy)
-                return sk
+            if not isinstance(obj, (dict, list)) or len(obj) == 0:
+                counts["files_quarantined"] += 1
+                counts["records_quarantined"] += 1
+                report_files.append({"input_sha256": file_hash, "output": None, "status": "quarantined", "reason": "empty or unsupported json"})
+                continue
+
+            def _clean_key(key: str, used: set[str]) -> str:
+                _, k_ents = detector.scan(key.replace("_", " ").replace("-", " "))
+                if k_ents:
+                    k_hash = hashlib.sha256(key.encode("utf-8")).hexdigest()[:8]
+                    base_k = f"key_{k_hash}"
+                else:
+                    base_k = key
+                cand = base_k
+                suffix = 2
+                while cand in used:
+                    cand = f"{base_k}_{suffix}"
+                    suffix += 1
+                used.add(cand)
+                return cand
 
             def _clean(x: Any) -> Any:
                 if isinstance(x, str):
@@ -146,10 +219,12 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
                 if isinstance(x, list):
                     return [_clean(i) for i in x]
                 if isinstance(x, dict):
-                    return {_clean_key(str(k)): _clean(v) for k, v in x.items()}
+                    used_keys: set[str] = set()
+                    return {_clean_key(str(k), used_keys): _clean(v) for k, v in x.items()}
                 return x
 
             cleaned_obj = _clean(obj)
+            dst_path.parent.mkdir(parents=True, exist_ok=True)
             dst_path.write_text(json.dumps(cleaned_obj, ensure_ascii=False, indent=2), encoding="utf-8")
 
             if isinstance(obj, list):
@@ -174,6 +249,7 @@ def run_pipeline(input_dir: Path, output_dir: Path) -> None:
                 san_lines.append(san_txt)
                 psn = next((anonymizer.pseudonym_for("PERSON", e.text).strip("[]") for e in ents if e.entity_type == "PERSON"), None)
                 records_jsonl_lines.append(json.dumps({"file": rel_out, "loc": f"line:{idx}" if len(lines) > 1 else "doc", "patient": psn}))
+            dst_path.parent.mkdir(parents=True, exist_ok=True)
             dst_path.write_text("\n".join(san_lines) + ("\n" if san_lines else ""), encoding="utf-8")
 
         counts["files_sanitized"] += 1

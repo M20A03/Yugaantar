@@ -15,20 +15,24 @@ CLINICAL_PATTERNS: List[Tuple[str, re.Pattern]] = [
     (
         "medication",
         re.compile(
-            r"\b(?:Metformin|Ramipril|Dolo\s*650|Paracetamol|Amoxicillin|Atorvastatin|Insulin|Azithromycin|Aspirin|Pantoprazole|Cetirizine|Losartan)\b",
+            r"\b(?:Metformin|Ramipril|Dolo\s*650|Paracetamol|Amoxicillin|Atorvastatin|Insulin|Azithromycin|Aspirin|Pantoprazole|Cetirizine|Losartan|Budesonide|Rifampicin)\b",
             re.IGNORECASE,
         ),
     ),
     (
         "dosage",
-        re.compile(r"\b(?:\d+(?:\.\d+)?\s*(?:mg|ml|mcg|g|units?)|\d\-\d\-\d|BD\s*x\s*\d+\s*days?|OD|TDS|SOS)\b", re.IGNORECASE),
+        re.compile(r"\b(?:\d+(?:\.\d+)?\s*(?:mg|ml|mcg|g|units?)|\d\-\d\-\d|BD\s*x\s*\d+\s*days?|BD|OD|TDS|SOS)\b", re.IGNORECASE),
     ),
     (
         "vital_or_lab",
         re.compile(
-            r"\b(?:BP\s*[:\-]?\s*\d{2,3}/\d{2,3}\s*(?:mmHg)?|Blood\s*pressure\s*[:\-]?\s*\d{2,3}/\d{2,3}\s*(?:mmHg)?|SpO2\s*[:\-]?\s*\d{2,3}%|HbA1c\s*[:\-]?\s*\d+(?:\.\d+)?%|Temp\s*[:\-]?\s*\d{2,3}(?:\.\d+)?\s*[CF]?)\b",
+            r"\b(?:BP\s*[:\-]?\s*\d{2,3}/\d{2,3}\s*(?:mmHg)?|Blood\s*pressure\s*[:\-]?\s*\d{2,3}/\d{2,3}\s*(?:mmHg)?|SpO2\s*[:\-]?\s*\d{2,3}%|HbA1c\s*[:\-]?\s*\d+(?:\.\d+)?%|Creatinine\s*[:\-]?\s*\d+(?:\.\d+)?\s*(?:mg/dL)?|Hemoglobin\s*[:\-]?\s*\d+(?:\.\d+)?\s*(?:g/dL)?|Platelets\s*[:\-]?\s*\d+\s*(?:/uL)?|Temp\s*[:\-]?\s*\d{2,3}(?:\.\d+)?\s*[CF]?)\b",
             re.IGNORECASE,
         ),
+    ),
+    (
+        "stay_length",
+        re.compile(r"\b\d+\s*(?:days?|weeks?)\b", re.IGNORECASE),
     ),
     (
         "symptom",

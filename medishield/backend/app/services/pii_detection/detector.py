@@ -51,7 +51,7 @@ CLINICAL_WHITELIST = {
 HINGLISH_MARKERS = {
     "ko", "hai", "hain", "ka", "ki", "ke", "sahab", "ji", "didi", "bhai",
     "se", "me", "mein", "aur", "nahi", "bukhar", "dard", "dawai", "goli",
-    "umra", "saal", "mareez", "rogi", "pata", "ghar", "gaon", "zila",
+    "umra", "umar", "saal", "mareez", "mariz", "rogi", "pata", "ghar", "gaon", "zila",
 }
 
 CLINICAL_COMPLAINT_TERMS = {
@@ -66,7 +66,7 @@ RELATIVE_PREFIX_RE = re.compile(
 )
 
 PATIENT_PREFIX_RE = re.compile(
-    r"\b(?:Patient|Pt\.?|Name|Mareez|Rogi|Mr\.?|Mrs\.?|Ms\.?|Shri|Smt\.?|नाम|रोगी|मरीज़)\s*[:\-]?\s*",
+    r"\b(?:Patient|Pt\.?|Name|Mareez|Mariz|Rogi|Mr\.?|Mrs\.?|Ms\.?|Shri|Smt\.?|नाम|रोगी|मरीज़)\s*[:\-]?\s*",
     re.IGNORECASE,
 )
 
@@ -259,7 +259,7 @@ class MultilingualPIIDetector:
     ) -> None:
         # Pattern A: Explicit patient prefix (incl. common typos like Pateint & OPD/IPD Note)
         pat_name_re = re.compile(
-            r"\b(?:Patient|Pateint|Patinet|Pt\.?|Name|Mareez|Rogi|OPD\s+Note|IPD\s+Note|Mr\.?|Mrs\.?|Ms\.?|Shri|Smt\.?|नाम|रोगी|मरीज़)\s*[:\-]?\s*([A-Z\u0900-\u097F][a-zA-Z\u0900-\u097F\.]{1,25}(?:\s+[A-Z\u0900-\u097F][a-zA-Z\u0900-\u097F\.]{1,25}){0,2})",
+            r"\b(?:Patient|Pateint|Patinet|Pt\.?|Name|Mareez|Mariz|mariz|Rogi|OPD\s+Note|IPD\s+Note|Mr\.?|Mrs\.?|Ms\.?|Shri|Smt\.?|नाम|रोगी|मरीज़)\s*[:\-]?\s*([A-Z\u0900-\u097F][a-zA-Z\u0900-\u097F\.]{1,25}(?:\s+[A-Z\u0900-\u097F][a-zA-Z\u0900-\u097F\.]{1,25}){0,2})",
         )
         for m in pat_name_re.finditer(text):
             name_val = m.group(1).strip(" .,:-")

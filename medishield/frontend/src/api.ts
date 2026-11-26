@@ -75,6 +75,29 @@ export interface EvaluationResponse {
   }>;
 }
 
+export interface PrivacyDefenseResponse {
+  total_records: number;
+  synthetic_patients: number;
+  synthetic_voters: number;
+  hospital_systems: string[];
+  before_reidentification_rate: number;
+  after_reidentification_rate: number;
+  risk_reduction_pct: number;
+  before_unique_rate: number;
+  after_unique_rate: number;
+  min_anonymity_group_size: number;
+  avg_anonymity_group_size: number;
+  direct_pii_leakage_rate: number;
+  residual_qi_exposure_rate: number;
+  clinical_preservation_score: number;
+  system_breakdown: Record<
+    string,
+    { records: number; before_reid: number; after_reid: number; direct_leaks: number }
+  >;
+  latency_ms: number;
+  disclaimer: string;
+}
+
 const BASE = "/api";
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
@@ -170,4 +193,8 @@ export const api = {
       body: JSON.stringify({ original_text, sanitized_text }),
     }),
   runEvaluation: () => req<EvaluationResponse>("/evaluation/run"),
+  evaluatePrivacyDefense: (n_patients = 36, seed = 42) =>
+    req<PrivacyDefenseResponse>(`/privacy-defense/evaluate?n_patients=${n_patients}&seed=${seed}`, {
+      method: "POST",
+    }),
 };

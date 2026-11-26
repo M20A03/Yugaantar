@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { api, AnonymizeResponse, DetectedEntity, EvaluationResponse, MetricsResponse } from "./api";
+import { api, AnonymizeResponse, DetectedEntity, EvaluationResponse, MetricsResponse, PrivacyDefenseResponse } from "./api";
 import {
   AlertIcon,
   FlaskIcon,
@@ -34,6 +34,7 @@ type TabId =
   | "fidelity"
   | "audit"
   | "evaluation"
+  | "defense"
   | "settings";
 
 const SAMPLE_RECORDS: Record<string, string> = {
@@ -105,6 +106,10 @@ export default function App() {
 
   const [evalResult, setEvalResult] = useState<EvaluationResponse | null>(null);
   const [evalBusy, setEvalBusy] = useState(false);
+
+  const [defenseResult, setDefenseResult] = useState<PrivacyDefenseResponse | null>(null);
+  const [defenseBusy, setDefenseBusy] = useState(false);
+  const [defensePatients, setDefensePatients] = useState(36);
 
   const refreshMetrics = async () => {
     try {
@@ -215,6 +220,19 @@ export default function App() {
     }
   };
 
+  const handleRunDefenseLab = async () => {
+    setDefenseBusy(true);
+    setError(null);
+    try {
+      const res = await api.evaluatePrivacyDefense(defensePatients, 42);
+      setDefenseResult(res);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Privacy Defense Lab failed");
+    } finally {
+      setDefenseBusy(false);
+    }
+  };
+
   const categoryData = useMemo(
     () =>
       Object.entries(metrics?.category_distribution || {}).map(([name, value]) => ({
@@ -242,6 +260,7 @@ export default function App() {
     { id: "fidelity", label: "Medical Fidelity", icon: <PulseIcon /> },
     { id: "audit", label: "Audit Logs", icon: <ListIcon /> },
     { id: "evaluation", label: "Evaluation Lab", icon: <FlaskIcon /> },
+    { id: "defense", label: "Privacy Defense Lab", icon: <ShieldIcon /> },
     { id: "settings", label: "Settings", icon: <SlidersIcon /> },
   ];
 
@@ -853,6 +872,93 @@ export default function App() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* PRIVACY DEFENSE LAB */}
+          {tab === "defense" && (
+            <div className="space-y-5">
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs flex flex-wrap items-center justify-between gap-4">
+                <div className="space-y-1 max-w-2xl">
+                  <div className="text-sm font-semibold text-slate-900">
+                    Defensive Re-Identification Resistance Lab (4-Hospital Cohort vs. Synthetic Voter List)
+                  </div>
+                  <div className="text-xs text-slate-600">
+                    Measures attacker re-identification success before and after MediShield sanitization. Strictly defensive aggregate metrics only — no patient identity lookup is exposed.
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="text-xs text-slate-600 flex items-center gap-2">
+                    Synthetic Patients:
+                    <input
+                      type="number"
+                      min={12}
+                      max={100}
+                      value={defensePatients}
+                      onChange={(e) => setDefensePatients(Number(e.target.value) || 36)}
+                      className="w-16 rounded-lg border border-slate-300 px-2 py-1 text-xs font-mono text-slate-800"
+                    />
+                  </label>
+                  <button
+                    onClick={handleRunDefenseLab}
+                    disabled={defenseBusy}
+                    className="px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold"
+                  >
+                    {defenseBusy ? "Simulating..." : "Run Defense Simulation"}
+                  </button>
+                </div>
+              </div>
+
+              {defenseResult && (
+                <>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[
+                      { k: "Re-ID Before Sanitization", v: `${(defenseResult.before_reidentification_rate * 100).toFixed(1)}%`, tone: "text-rose-700" },
+                      { k: "Re-ID After Sanitization", v: `${(defenseResult.after_reidentification_rate * 100).toFixed(1)}%`, tone: "text-emerald-700" },
+                      { k: "Risk Reduction", v: `${defenseResult.risk_reduction_pct.toFixed(1)}%`, tone: "text-teal-700" },
+                      { k: "Clinical Preservation", v: `${(defenseResult.clinical_preservation_score * 100).toFixed(1)}%`, tone: "text-emerald-700" },
+                      { k: "Direct PII Leakage", v: `${(defenseResult.direct_pii_leakage_rate * 100).toFixed(2)}%`, tone: "text-emerald-700" },
+                      { k: "Unique Record Rate (After)", v: `${(defenseResult.after_unique_rate * 100).toFixed(1)}%`, tone: "text-slate-800" },
+                      { k: "Min / Avg k-Group Size", v: `${defenseResult.min_anonymity_group_size} / ${defenseResult.avg_anonymity_group_size}`, tone: "text-slate-800" },
+                      { k: "CPU Latency", v: `${defenseResult.latency_ms} ms`, tone: "text-slate-800" },
+                    ].map((m) => (
+                      <div key={m.k} className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+                        <div className="text-xs text-slate-500">{m.k}</div>
+                        <div className={`text-xl font-mono font-bold mt-1 ${m.tone}`}>{m.v}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-xs">
+                    <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+                      <div className="text-sm font-semibold text-slate-900">Four-System Breakdown</div>
+                      <div className="text-xs text-slate-500">{defenseResult.total_records} fragmented records · {defenseResult.synthetic_voters} synthetic voters</div>
+                    </div>
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                        <tr>
+                          <th className="px-4 py-2.5">Hospital System</th>
+                          <th className="px-4 py-2.5">Records</th>
+                          <th className="px-4 py-2.5">Before Re-ID Hits</th>
+                          <th className="px-4 py-2.5">After Re-ID Hits</th>
+                          <th className="px-4 py-2.5">Direct PII Leaks</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 font-mono">
+                        {Object.entries(defenseResult.system_breakdown).map(([sysName, st]) => (
+                          <tr key={sysName} className="hover:bg-slate-50">
+                            <td className="px-4 py-2.5 font-semibold text-teal-700">{sysName}</td>
+                            <td className="px-4 py-2.5 text-slate-800">{st.records}</td>
+                            <td className="px-4 py-2.5 text-rose-700">{st.before_reid}</td>
+                            <td className="px-4 py-2.5 text-emerald-700">{st.after_reid}</td>
+                            <td className="px-4 py-2.5 text-slate-800">{st.direct_leaks}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </>
               )}

@@ -289,3 +289,35 @@
 78. **What happens if `main.py` sees a filename like `rahul_sharma_opd.txt`?** It renames the output file to `redacted_<hash>.txt`.
 79. **What happens if `RAKSHA_SECRET` is reused across two unrelated releases?** Attackers could correlate pseudonyms across releases; V3 uses HKDF domain separation with `release_scope`.
 80. **What is the main remaining limitation of MediShield?** Synthetic datasets cannot capture every real-world hospital abbreviation, and the official Track 3 organizer validator/ZKP contract was not in the workspace.
+
+
+---
+
+## 14. New Track 3 Defense Upgrades (Simple Viva Explanations)
+
+### Q1: What is the "Privacy Defense Lab" and why did we build it?
+In Track 3 (*Secret Wards*), an attacker tries to match our anonymized hospital output against a public **Voter List** to figure out who the patients are.
+Our **Privacy Defense Lab** (`POST /privacy-defense/evaluate`) simulates this attack safely on **synthetic** data across 4 different hospital systems (`Apex_HIS`, `Bharat_Care`, `Swasthya_Clinic`, `Metro_Diagnostics`).
+- **Before MediShield:** The attacker re-identifies **100%** of records.
+- **After MediShield:** Re-identification drops to **0%**, with **0% direct PII leakage** and **100% clinical preservation**.
+- Importantly, the lab only shows **aggregate statistics** (counts and percentages) — it never exposes a "look up who this patient is" tool.
+
+### Q2: How do we prevent PII from leaking through filenames, folders, or JSON keys?
+Even if you clean the text inside a file, a filename like `Rahul_Verma_9811223344.txt` or a folder `Aarav_Sharma_9876543210/` or a CSV column header still leaks identity!
+In `main.py`, MediShield now scans:
+1. **Folder names** -> replaced with `dir_<hash>` if PII is found.
+2. **File names** -> renamed to `redacted_<hash>.<ext>` if PII is found.
+3. **CSV/TSV headers & JSON keys** -> replaced with collision-safe `field_<hash>` / `key_<hash>` (with `_2`, `_3` if needed so clinical values are never overwritten).
+4. **Logs & reports** -> `report.json` only records `input_sha256`, never original unsafe filenames.
+
+### Q3: What happens when a hospital sends a corrupted or unreadable file?
+MediShield uses **fail-safe quarantine**:
+- Bad UTF-8 bytes, empty files, broken JSON, unsupported formats (like `.exe`), or malformed CSV rows are **quarantined** (`status: "quarantined"`, `output: null`).
+- They are **never** copied into the `sanitized/` output folder, and their unsafe original names or contents are never written to `report.json`.
+
+### Q4: How do we prove medical data is not damaged?
+Our `MedicalFidelityEngine` (`fidelity.py`) checks that exact clinical facts survive anonymization untouched:
+- **Medications & dosages:** `Metformin 500 mg 1-0-1`, `Insulin 10 units BD`
+- **Lab values & units:** `HbA1c 7.8%`, `Creatinine 1.2 mg/dL`
+- **Vitals:** `BP 130/85 mmHg`
+- **Hospital stay lengths:** `4 days`, `9 days`

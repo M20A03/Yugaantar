@@ -29,6 +29,7 @@ from app.services.anonymization.anonymizer import AnonymizerEngine
 from app.services.evaluation.evaluator import run_evaluation_suite
 from app.services.medical_fidelity.fidelity import MedicalFidelityEngine
 from app.services.pii_detection.detector import MultilingualPIIDetector
+from app.services.privacy_defense.reid_lab import run_reidentification_defense_lab
 from app.services.record_linkage.linker import RecordLinkageEngine
 from app.services.risk_analysis.risk_analyzer import RiskAnalyzer
 from app.services.storage.audit_db import AuditStore
@@ -331,3 +332,9 @@ def get_metrics() -> MetricsResponse:
 @router.get("/evaluation/run")
 def run_eval() -> Dict[str, Any]:
     return run_evaluation_suite()
+
+
+@router.post("/privacy-defense/evaluate")
+def evaluate_privacy_defense(n_patients: int = 36, seed: int = 42) -> Dict[str, Any]:
+    safe_n = max(12, min(n_patients, 100))
+    return run_reidentification_defense_lab(n_patients=safe_n, seed=seed)
