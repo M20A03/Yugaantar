@@ -42,6 +42,7 @@ Single consolidated reference of all installed skills on this machine.
 | **Runway** | `runway-to-invideo` | — |
 | **Grok Bot** | `grok-agents`, `grok-build`, `grok-delegate` | — |
 | **OpenClaw** | `openclaw-deployment-hardening`, `openclaw-github-repo-commander`, `openclaw-local-mac-mini`, `openclaw-security-hardening` | — |
+| **Memory** | `agent-memory`, `agent-memory-discipline`, `agent-memory-mcp`, `agent-memory-systems`, `conversation-memory`, `hierarchical-agent-memory`, `memory-handoff`, `memory-systems`, `mesh-memory`, `project-memory-log`, `tree-ring-memory` | — |
 
 ## Built-in Skills (16)
 
