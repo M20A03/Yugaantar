@@ -1,0 +1,10 @@
+# Nested cloned repositories (managed independently)
+hermes-agent/
+OmniRoute/
+
+# Environment & OS artifacts
+.env
+.env.*
+.DS_Store
+__pycache__/
+node_modules/
