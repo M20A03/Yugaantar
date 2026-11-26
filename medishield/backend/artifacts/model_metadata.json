@@ -1,0 +1,8 @@
+{
+  "pii_model": "char_tfidf_lr",
+  "linkage_model": "logistic_regression",
+  "high_threshold": 0.65,
+  "review_threshold": 0.5,
+  "offline_only": true,
+  "zero_llm": true
+}

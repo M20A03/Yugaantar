@@ -6,10 +6,13 @@ entity protection, and a lightweight scikit-learn TF-IDF + LogisticRegression
 context classifier trained on deterministic synthetic patterns.
 """
 
+import os
 import re
 import unicodedata
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import joblib
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 
@@ -124,9 +127,13 @@ def detect_language(text: str) -> str:
 
 
 class _ContextNameClassifier:
-    """Tiny offline TF-IDF + LogisticRegression classifier for ambiguous name contexts."""
+    """Offline TF-IDF + LogisticRegression classifier (loads trained artifact if present)."""
 
     def __init__(self) -> None:
+        artifact = Path(__file__).resolve().parents[3] / "artifacts" / "pii_model.joblib"
+        self.pipeline = joblib.load(artifact) if artifact.is_file() else None
+        if self.pipeline is not None:
+            return
         samples = [
             ("Patient Rahul Sharma admitted with fever", 1),
             ("Pt. Meera Devi W/o Rajan Kumar", 1),
@@ -149,6 +156,8 @@ class _ContextNameClassifier:
         self.clf.fit(X, labels)
 
     def score_context(self, window: str) -> float:
+        if self.pipeline is not None:
+            return float(self.pipeline.predict_proba([window])[0][1])
         X = self.vectorizer.transform([window])
         return float(self.clf.predict_proba(X)[0][1])
 

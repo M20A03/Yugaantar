@@ -1,0 +1,6 @@
+scikit-learn==1.6.1
+rapidfuzz==3.11.0
+numpy==2.2.1
+pandas==2.2.3
+joblib>=1.4.0
+matplotlib>=3.9.0

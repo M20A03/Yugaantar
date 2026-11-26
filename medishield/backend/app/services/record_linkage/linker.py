@@ -7,10 +7,12 @@ import os
 import re
 import secrets
 from collections import defaultdict
+from pathlib import Path
 from typing import Dict, List, Set, Tuple
 
+import joblib
 from rapidfuzz import fuzz
-from rapidfuzz.distance import JaroWinkler
+from rapidfuzz.distance import JaroWinkler, Levenshtein
 
 from app.models.schemas import HospitalRecordInput, LinkageCluster, LinkagePair
 from app.services.pii_detection.detector import normalize_text, transliterate_devanagari
@@ -71,6 +73,11 @@ class RecordLinkageEngine:
     def __init__(self, secret_key: str | None = None, release_scope: str = "linkage-default") -> None:
         self._master = (secret_key or os.environ.get("RAKSHA_SECRET") or secrets.token_hex(32)).encode("utf-8")
         self._scope = release_scope
+        artifact = Path(__file__).resolve().parents[3] / "artifacts" / "linkage_model.joblib"
+        bundle = joblib.load(artifact) if artifact.is_file() else None
+        self._ml_model = bundle["model"] if bundle else None
+        self._high_thresh = float(bundle["high_threshold"]) if bundle else 0.85
+        self._review_thresh = float(bundle["review_threshold"]) if bundle else 0.50
 
     def _pseudonym(self, seed: str) -> str:
         msg = f"medishield:v1:{self._scope}:cluster:{seed}".encode("utf-8")

@@ -1,0 +1,90 @@
+{
+  "dataset_sizes": {
+    "pii_records": 50000,
+    "linkage_pairs": 50000
+  },
+  "pii_context_models": {
+    "word_tfidf_val_f1": 1.0,
+    "char_tfidf_val_f1": 1.0,
+    "selected_model": "char_tfidf_lr",
+    "test_precision": 1.0,
+    "test_recall": 1.0,
+    "test_f1": 1.0
+  },
+  "hybrid_detector_per_language_test": {
+    "en": {
+      "records_evaluated": 500,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "hi": {
+      "records_evaluated": 500,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "hinglish": {
+      "records_evaluated": 500,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    }
+  },
+  "linkage_models_val_f1": {
+    "logistic_regression": 1.0,
+    "random_forest": 1.0,
+    "gradient_boosting": 1.0
+  },
+  "selected_linkage_model": "logistic_regression",
+  "calibrated_high_threshold": 0.65,
+  "linkage_test_metrics": {
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "confusion_matrix": [
+      [
+        3712,
+        0
+      ],
+      [
+        0,
+        3788
+      ]
+    ]
+  },
+  "learning_curve": [
+    {
+      "train_samples": 1000,
+      "test_precision": 0.0,
+      "test_recall": 0.0,
+      "test_f1": 0.0
+    },
+    {
+      "train_samples": 10000,
+      "test_precision": 0.0,
+      "test_recall": 0.0,
+      "test_f1": 0.0
+    },
+    {
+      "train_samples": 25000,
+      "test_precision": 1.0,
+      "test_recall": 1.0,
+      "test_f1": 1.0
+    },
+    {
+      "train_samples": 35000,
+      "test_precision": 1.0,
+      "test_recall": 1.0,
+      "test_f1": 1.0
+    }
+  ],
+  "performance": {
+    "avg_detector_latency_ms": 1.581,
+    "worst_detector_latency_ms": 26.255,
+    "peak_traced_memory_mb": 1088.17,
+    "total_training_seconds": 140.0,
+    "pii_model_size_kb": 402.6,
+    "linkage_model_size_kb": 0.7
+  }
+}
